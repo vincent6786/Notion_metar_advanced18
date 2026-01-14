@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Pilot EFB V33</title>
+    <title>Notion Pilot EFB V34</title>
     <style>
         :root {
             --bg: #000000; --card-bg: #1c1c1e; --text: #ffffff; --sub-text: #8e8e93;
@@ -77,29 +77,43 @@
         .stat-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #333; }
         select.stealth-select { background: #2c2c2e; border: 1px solid var(--border); color: #fff; padding: 6px; border-radius: 6px; width: 100%; font-weight: 600; outline: none; }
 
-        /* --- TAF VISUALIZATION STYLES (NEW) --- */
+        /* --- TAF VISUALIZATION STYLES --- */
         .taf-viz-container { margin-top: 10px; }
         
-        /* Timeline Bar */
+        /* The Bar Container */
         .taf-bar { 
-            display: flex; height: 36px; width: 100%; 
-            background: #2c2c2e; border-radius: 8px; overflow: hidden; 
-            margin-bottom: 12px; border: 1px solid var(--border);
+            display: flex; height: 32px; width: 100%; 
+            background: #2c2c2e; border-radius: 6px; overflow: hidden; 
+            border: 1px solid var(--border);
         }
+        /* The Time Axis Container */
+        .taf-axis {
+            display: flex; width: 100%; margin-top: 4px; margin-bottom: 12px;
+        }
+
+        /* The Blocks inside the Bar */
         .taf-block {
             cursor: pointer; position: relative;
             display: flex; align-items: center; justify-content: center;
-            font-size: 11px; font-weight: 700; color: rgba(0,0,0,0.7);
+            font-size: 10px; font-weight: 800; color: rgba(0,0,0,0.6);
             border-right: 1px solid rgba(0,0,0,0.1);
             transition: opacity 0.2s;
+            text-transform: uppercase;
         }
         .taf-block:hover { opacity: 0.8; }
         .taf-block.selected { border: 2px solid #fff; z-index: 10; box-shadow: 0 0 10px rgba(0,0,0,0.5); color: #000; }
 
+        /* The Labels inside the Axis */
+        .taf-axis-lbl {
+            text-align: center; font-size: 10px; color: var(--sub-text);
+            font-family: 'SF Mono', monospace;
+            border-right: 1px solid transparent; /* To match flex sizing */
+        }
+
         /* Detail Card */
         .taf-detail-card {
             background: var(--card-bg); border-radius: 8px; padding: 16px;
-            border-left: 4px solid var(--sub-text); /* Dynamic Color */
+            border-left: 4px solid var(--sub-text); 
             animation: slideDown 0.2s ease-out;
         }
         @keyframes slideDown { from { opacity:0; transform: translateY(-5px); } to { opacity:1; transform: translateY(0); } }
@@ -119,7 +133,13 @@
         .info-val { font-weight: 500; text-align: right; }
         .rwy-card { background: var(--card-bg); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
         .rwy-head { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 700; font-size: 15px; }
-        .raw-text { font-family: 'SF Mono', monospace; font-size: 12px; color: #d0d0d0; margin-top: 12px; line-height: 1.5; white-space: pre-wrap; }
+        
+        /* Adjusted Raw Text Style */
+        .raw-text { 
+            font-family: 'SF Mono', monospace; font-size: 11px; color: #d0d0d0; 
+            margin-top: 6px; line-height: 1.4; white-space: pre-wrap;
+            background: rgba(255,255,255,0.05); padding: 6px; border-radius: 6px;
+        }
     </style>
 </head>
 <body>
@@ -161,6 +181,9 @@
                 </div>
             </div>
         </div>
+        
+        <div class="raw-text" id="rawMetar">Enter an airport code above.</div>
+
         <div class="metar-grid">
             <div class="metar-card"><div class="m-label">WIND</div><div class="m-value" id="mWind">--</div></div>
             <div class="metar-card"><div class="m-label">VISIBILITY</div><div class="m-value" id="mVis">--</div></div>
@@ -169,7 +192,6 @@
             <div class="metar-card full-width"><div class="m-label">TEMP / DEWPOINT</div><div class="m-value"><span id="mTempC">--</span> <span id="mTempF" class="m-sub">--</span></div></div>
         </div>
         <div class="metar-footer"><span id="mAge">--</span><span id="mSpread">Spread: --</span></div>
-        <div class="raw-text" id="rawMetar">Enter an airport code above.</div>
     </div>
 
     <div id="tab-taf" class="view-section">
@@ -179,6 +201,8 @@
         
         <div class="taf-viz-container">
             <div id="tafBar" class="taf-bar"></div>
+            <div id="tafAxis" class="taf-axis"></div>
+
             <div id="tafDetail" class="taf-detail-card hidden">
                 <div class="td-header">
                     <span id="tdTime" class="td-time">--</span>
@@ -231,7 +255,7 @@
         let currentWind = { dir:0, spd:0 };
         let currentElev = 0;
         let runwayData = [];
-        let tafDataCache = null; // Store for interaction
+        let tafDataCache = null;
 
         function setTab(name) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
@@ -294,8 +318,6 @@
             });
         }
 
-        // --- RENDERERS ---
-
         function updateHeaderCat(status, colorClass) {
             const badge = document.getElementById('headerCat');
             badge.innerText = status; badge.className = 'badge badge-cat ' + colorClass;
@@ -325,26 +347,22 @@
             document.getElementById('mAge').innerText = `${minAgo}m ago`;
         }
 
-        // --- NEW TAF LOGIC ---
         function renderTaf(d) {
             document.getElementById('rawTaf').innerText = d.raw;
-            tafDataCache = d.forecast; // Cache for clicks
+            tafDataCache = d.forecast;
             const bar = document.getElementById('tafBar');
-            bar.innerHTML = '';
-            document.getElementById('tafDetail').classList.add('hidden'); // Hide detail on reload
+            const axis = document.getElementById('tafAxis');
+            bar.innerHTML = ''; axis.innerHTML = '';
+            document.getElementById('tafDetail').classList.add('hidden');
 
             if(!d.forecast) return;
 
-            // Simple visual normalization: We just give equal flex for now, or approximate duration?
-            // Proportional is hard without knowing total TAF length easily.
-            // Let's stick to equal blocks for readability on small Notion widgets, or basic weighting.
-            
             d.forecast.forEach((f, index) => {
+                // 1. Bar Block
                 const block = document.createElement('div');
                 block.className = 'taf-block';
-                block.style.flex = "1"; // Default equal width
+                block.style.flex = "1";
                 
-                // Color Code
                 let col = '#555';
                 if(f.flight_rules === 'VFR') col = 'var(--success)';
                 if(f.flight_rules === 'MVFR') col = 'var(--mvfr)';
@@ -352,30 +370,30 @@
                 if(f.flight_rules === 'LIFR') col = 'var(--lifr)';
                 block.style.backgroundColor = col;
 
-                // Label (Time)
-                const start = new Date(f.start_time.dt);
-                block.innerHTML = `<span>${start.getUTCHours()}z</span>`;
-                
-                // Interaction
+                // Name of block ON IT
+                block.innerText = f.type; 
+
                 block.onclick = () => {
-                    // Remove other selected states
                     document.querySelectorAll('.taf-block').forEach(b => b.classList.remove('selected'));
                     block.classList.add('selected');
                     showTafDetail(index, col);
                 };
-
                 bar.appendChild(block);
+
+                // 2. Axis Label BELOW IT
+                const start = new Date(f.start_time.dt);
+                const lbl = document.createElement('div');
+                lbl.className = 'taf-axis-lbl';
+                lbl.style.flex = "1";
+                lbl.innerText = `${start.getUTCHours()}z`;
+                axis.appendChild(lbl);
             });
-            
-            // Auto-select first block?
-            // if(d.forecast.length > 0) bar.firstChild.click(); 
         }
 
         function showTafDetail(index, color) {
             const f = tafDataCache[index];
             const card = document.getElementById('tafDetail');
-            
-            card.style.borderLeftColor = color; // Match timeline color
+            card.style.borderLeftColor = color; 
             card.classList.remove('hidden');
 
             const s = new Date(f.start_time.dt);
@@ -384,29 +402,19 @@
             
             document.getElementById('tdTime').innerText = `${fmt(s)} ➔ ${fmt(e)}`;
             document.getElementById('tdType').innerText = f.type;
-
-            // Wind
+            
             const wDir = f.wind_direction?.value || 'VRB';
             const wSpd = f.wind_speed?.value || 0;
             const wGst = f.wind_gust?.value ? `G${f.wind_gust.value}` : '';
             document.getElementById('tdWind').innerText = `${wDir}° / ${wSpd}${wGst}kt`;
-
-            // Vis
             document.getElementById('tdVis').innerText = f.visibility ? `${f.visibility.value} sm` : 'P6SM';
-
-            // Wx (Codes)
             const wx = f.wx_codes ? f.wx_codes.map(x => x.repr).join(' ') : 'NSW';
             document.getElementById('tdWx').innerText = wx;
-
-            // Cloud
             let cStr = 'SKC';
-            if(f.clouds && f.clouds.length > 0) {
-                cStr = f.clouds.map(c => `${c.type}${c.altitude.toString().padStart(3,'0')}`).join(', ');
-            }
+            if(f.clouds && f.clouds.length > 0) cStr = f.clouds.map(c => `${c.type}${c.altitude.toString().padStart(3,'0')}`).join(', ');
             document.getElementById('tdCloud').innerText = cStr;
         }
 
-        // --- WIND ROSE ---
         function drawWindRose() {
             const canvas = document.getElementById('windRose');
             const ctx = canvas.getContext('2d');
@@ -458,19 +466,16 @@
             }
         }
 
-        // --- UTILS ---
         function renderInfo(d) {
             document.getElementById('infoName').innerText = d.name;
             document.getElementById('infoCodes').innerText = d.icao;
             document.getElementById('infoElev').innerText = `${Math.round(d.elevation_ft)} ft`;
             currentElev = d.elevation_ft;
-            // Solar
             fetch(`https://api.sunrise-sunset.org/json?lat=${d.latitude}&lng=${d.longitude}&formatted=0`)
                 .then(r=>r.json()).then(s => {
                     const t = (iso) => new Date(iso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false});
                     document.getElementById('infoSun').innerText = `🌅 ${t(s.results.sunrise)}  🌇 ${t(s.results.sunset)}`;
                 });
-
             const container = document.getElementById('runwayList'); container.innerHTML = '';
             (d.runways||[]).forEach(r => {
                 container.innerHTML += `<div class="rwy-card"><div class="rwy-head">RWY ${r.ident1} / ${r.ident2} <span class="rwy-dim">${r.length_ft}'</span></div></div>`;
