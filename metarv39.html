@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Pilot EFB V40</title>
+    <title>Notion Pilot EFB V41</title>
     <style>
         :root {
             --bg: #000000; --card-bg: #1c1c1e; --text: #ffffff; --sub-text: #8e8e93;
@@ -67,7 +67,6 @@
         .ic-val { font-size: 15px; font-weight: 600; color: #fff; margin-top: 2px; }
         .ic-val-sm { font-size: 13px; font-weight: 500; color: #fff; margin-top: 2px; font-family: 'SF Mono', monospace; }
         
-        /* Frequency Grid */
         .freq-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
         .freq-card { background: var(--card-bg); border-radius: 8px; padding: 10px; text-align: center; }
         .freq-type { font-size: 11px; color: var(--sub-text); text-transform: uppercase; margin-bottom: 4px; }
@@ -104,7 +103,7 @@
         .stat-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #333; }
         select.stealth-select { background: #2c2c2e; border: 1px solid var(--border); color: #fff; padding: 6px; border-radius: 6px; width: 100%; font-weight: 600; outline: none; }
 
-        /* TAF STYLES */
+        /* TAF & TOOLS Styles */
         .taf-viz-container { margin-top: 10px; }
         .taf-bar { display: flex; height: 32px; width: 100%; background: #2c2c2e; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
         .taf-axis { display: flex; width: 100%; margin-top: 4px; margin-bottom: 12px; }
@@ -120,31 +119,18 @@
         .td-item { display: flex; flex-direction: column; }
         .td-lbl { font-size: 11px; color: var(--sub-text); margin-bottom: 2px; }
         .td-val { font-size: 14px; font-weight: 600; color: #fff; }
-
-        /* ATC Buttons */
-        .atc-btn {
-            display: flex; justify-content: space-between; align-items: center;
-            background: var(--card-bg); padding: 14px 16px; border-radius: 10px;
-            text-decoration: none; color: #fff; font-weight: 600; font-size: 15px;
-            border: 1px solid var(--border); transition: background 0.2s; margin-bottom: 10px;
-        }
+        .atc-btn { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 14px 16px; border-radius: 10px; text-decoration: none; color: #fff; font-weight: 600; font-size: 15px; border: 1px solid var(--border); transition: background 0.2s; margin-bottom: 10px; }
         .atc-btn:hover { background: #2c2c2e; border-color: var(--accent); }
-
-        /* TOOLS SPECIFIC */
         .tool-btn { background: #333; border: 1px solid var(--border); color: #fff; width: 100%; padding: 8px; border-radius: 6px; cursor: pointer; margin-top: 4px; font-weight: 600; }
         .tool-btn:hover { background: #444; }
         .code-list { background: #222; border-radius: 6px; padding: 10px; margin-top: 8px; font-size: 12px; max-height: 200px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
         .code-item { color: #aaa; } .code-item b { color: var(--accent); }
-        
         .timer-display { font-family: 'SF Mono', monospace; font-size: 32px; font-weight: 700; text-align: center; margin: 10px 0; letter-spacing: 2px; }
         .timer-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         .t-btn { padding: 10px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; color: #fff; }
-        .tb-start { background: var(--success); color: #000; }
-        .tb-stop { background: var(--danger); }
-        .tb-lap { background: var(--accent); }
+        .tb-start { background: var(--success); color: #000; } .tb-stop { background: var(--danger); } .tb-lap { background: var(--accent); }
         .lap-list { max-height: 100px; overflow-y: auto; margin-top: 10px; border-top: 1px solid var(--border); }
         .lap-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #333; font-size: 12px; color: var(--sub-text); font-family: 'SF Mono', monospace; }
-
         .conv-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
         .conv-inp { background: #2c2c2e; border: 1px solid var(--border); color: #fff; padding: 6px; border-radius: 6px; width: 100%; }
         .conv-lbl { font-size: 10px; color: var(--sub-text); text-transform: uppercase; margin-bottom: 2px; }
@@ -227,18 +213,15 @@
     <div id="tab-info" class="view-section">
         <div style="font-size:20px; font-weight:700; margin-bottom:4px;" id="infoName">Unknown</div>
         <div style="font-size:12px; color:var(--sub-text); margin-bottom:12px;" id="infoLoc">--</div>
-
         <div class="info-grid">
             <div class="info-card"><div class="ic-lbl">ICAO / IATA</div><div class="ic-val" id="infoCodes">--</div></div>
             <div class="info-card"><div class="ic-lbl">Elevation</div><div class="ic-val" id="infoElev">--</div></div>
             <div class="info-card" style="grid-column: span 2;"><div class="ic-lbl">Coordinates</div><div class="ic-val-sm" id="infoCoords">--</div></div>
         </div>
-
         <div class="section-title">FREQUENCIES</div>
         <div id="freqContainer" class="freq-grid">
             <div style="grid-column:span 3; font-size:12px; color:#555; text-align:center;">No Data</div>
         </div>
-
         <div class="section-title">ATMOSPHERE & TIME</div>
         <div class="info-grid">
             <div class="info-card"><div class="ic-lbl">Pressure Alt</div><div class="ic-val" id="calcPA">--</div></div>
@@ -248,7 +231,6 @@
             <div class="info-card"><div class="ic-lbl">Sunrise/Set</div><div class="ic-val" style="font-size:13px;" id="infoSun">--</div></div>
             <div class="info-card"><div class="ic-lbl">Mag Variation</div><div class="ic-val" id="infoMag">--</div></div>
         </div>
-
         <div class="rwy-section-head">
             <span style="font-weight:700; color:var(--sub-text);">RUNWAYS</span>
             <div class="unit-toggle" onclick="toggleUnits()">
@@ -280,8 +262,7 @@
         <input type="text" placeholder="Decode (e.g. +TSRA, BCFG)" class="conv-inp" oninput="decode(this.value)">
         <div id="decodeOut" style="color:var(--accent); margin:4px 0 8px 0; font-weight:600; font-size:14px; min-height:18px;">...</div>
         <button class="tool-btn" onclick="document.getElementById('codeList').classList.toggle('hidden')">Show Reference Codes</button>
-        <div id="codeList" class="code-list hidden">
-            </div>
+        <div id="codeList" class="code-list hidden"></div>
 
         <div class="section-title">Flight Timer</div>
         <div class="info-card">
@@ -297,18 +278,9 @@
         <div class="section-title">ISA Calculator</div>
         <div class="info-card">
             <div style="display:flex; gap:8px;">
-                <div style="flex:1;">
-                    <div class="conv-lbl">Altitude (ft)</div>
-                    <input type="number" id="isaInput" class="conv-inp" oninput="calcIsaTool()" placeholder="e.g. 5000">
-                </div>
-                <div style="flex:1;">
-                    <div class="conv-lbl">Std Temp</div>
-                    <div id="isaTempOut" class="ic-val">--</div>
-                </div>
-                <div style="flex:1;">
-                    <div class="conv-lbl">Std Press</div>
-                    <div id="isaPressOut" class="ic-val" style="font-size:13px;">--</div>
-                </div>
+                <div style="flex:1;"><div class="conv-lbl">Altitude (ft)</div><input type="number" id="isaInput" class="conv-inp" oninput="calcIsaTool()" placeholder="e.g. 5000"></div>
+                <div style="flex:1;"><div class="conv-lbl">Std Temp</div><div id="isaTempOut" class="ic-val">--</div></div>
+                <div style="flex:1;"><div class="conv-lbl">Std Press</div><div id="isaPressOut" class="ic-val" style="font-size:13px;">--</div></div>
             </div>
         </div>
 
@@ -329,20 +301,13 @@
     <script>
         const TOKEN = 'dMzS0-M9_ku1bYySTtsq4pZE8fEEiTUJaNtvqSDEgUs';
         
-        // --- GLOBALS ---
         let currentWind = { dir:0, spd:0 }; 
         let currentMetar = { temp: 15, alt: 1013, altUnit: 'hPa' };
         let stationData = null;
         let useMetric = true; 
         let tafDataCache = null;
+        let timerInterval = null, startTime = 0, elapsed = 0, running = false;
 
-        // Timer Globals
-        let timerInterval = null;
-        let startTime = 0;
-        let elapsed = 0;
-        let running = false;
-
-        // --- TABS & UI ---
         function setTab(name) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
@@ -367,7 +332,7 @@
         }
         setInterval(updateClock, 1000); updateClock();
 
-        // --- DATA LOADING ---
+        // --- OPTIMIZED PARALLEL DATA LOADING ---
         async function loadData() {
             const icao = document.getElementById('icao').value.toUpperCase();
             if(!icao) return;
@@ -375,40 +340,48 @@
             document.getElementById('linkSkyVector').href = `https://skyvector.com/airport/${icao}`;
             updateHeaderCat('Loading', '');
 
+            // 1. Create Headers
+            const headers = { 'Authorization': `Bearer ${TOKEN}` };
+
+            // 2. Start Independent Requests Simultaneously
+            const pStation = fetch(`https://avwx.rest/api/station/${icao}`, {headers}).then(res => { if(!res.ok) throw new Error('Station'); return res.json(); });
+            const pMetar = fetch(`https://avwx.rest/api/metar/${icao}`, {headers}).then(res => res.json());
+            const pTaf = fetch(`https://avwx.rest/api/taf/${icao}`, {headers}).then(res => res.json());
+            const pNotam = fetch(`https://avwx.rest/api/notam/${icao}`, {headers}).then(res => res.json());
+
             try {
-                // 1. Station
-                const resSt = await fetch(`https://avwx.rest/api/station/${icao}`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
-                if(!resSt.ok) throw new Error();
-                stationData = await resSt.json();
+                // 3. Await Critical Data (Station + Metar) to render first paint
+                const [station, metar] = await Promise.all([pStation, pMetar]);
                 
-                // 2. METAR
-                const resMe = await fetch(`https://avwx.rest/api/metar/${icao}`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
-                const metar = await resMe.json();
-                
+                stationData = station;
                 currentWind = { dir: metar.wind_direction?.value||0, spd: metar.wind_speed?.value||0 };
                 let altVal = metar.altimeter?.value || 1013;
                 let altUnit = 'hPa';
                 if(altVal < 200) altUnit = 'inHg';
-
                 currentMetar = { temp: metar.temperature?.value || 15, alt: altVal, altUnit: altUnit };
 
                 renderMetar(metar);
-                renderInfo(stationData); 
+                renderInfo(station);
                 
-                fetch(`https://avwx.rest/api/taf/${icao}`, { headers: { 'Authorization': `Bearer ${TOKEN}` } }).then(r=>r.json()).then(renderTaf).catch(console.error);
-                fetch(`https://avwx.rest/api/notam/${icao}`, { headers: { 'Authorization': `Bearer ${TOKEN}` } }).then(r=>r.json()).then(d => {
-                    document.getElementById('notamList').innerHTML = d.map(n => `<div style="margin-bottom:8px; border-left:3px solid var(--warn); padding-left:6px;">${n.raw}</div>`).join('');
-                });
-
+                // Populate Dropdown
                 const sel = document.getElementById('rwySelect'); sel.innerHTML = '';
-                (stationData.runways || []).forEach(r => {
+                (station.runways || []).forEach(r => {
                     sel.add(new Option(`RWY ${r.ident1}`, r.ident1));
                     sel.add(new Option(`RWY ${r.ident2}`, r.ident2));
                 });
-                if(stationData.runways.length > 0) sel.value = stationData.runways[0].ident1; 
+                if(station.runways.length > 0) sel.value = station.runways[0].ident1; 
                 drawWindRose();
 
-            } catch(e) { console.error(e); updateHeaderCat('Err', 'cat-ifr'); }
+                // 4. Render Non-Critical Data when available
+                pTaf.then(renderTaf).catch(e => console.error("TAF err"));
+                pNotam.then(d => {
+                    document.getElementById('notamList').innerHTML = d.map(n => `<div style="margin-bottom:8px; border-left:3px solid var(--warn); padding-left:6px;">${n.raw}</div>`).join('');
+                }).catch(e => console.error("NOTAM err"));
+
+            } catch(e) {
+                console.error(e);
+                updateHeaderCat('Err', 'cat-ifr');
+            }
         }
 
         function updateHeaderCat(status, colorClass) {
@@ -416,36 +389,24 @@
             badge.innerText = status; badge.className = 'badge badge-cat ' + colorClass;
         }
 
-        // --- RENDERERS ---
         function renderMetar(d) {
             document.getElementById('rawMetar').innerText = d.raw;
             const rules = d.flight_rules; 
             let css = 'cat-vfr';
             if(rules==='MVFR') css='cat-mvfr'; if(rules==='IFR') css='cat-ifr'; if(rules==='LIFR') css='cat-lifr';
             updateHeaderCat(rules, css);
-
             document.getElementById('mWind').innerText = `${currentWind.dir.toString().padStart(3,'0')}° / ${currentWind.spd}kt`;
             document.getElementById('mVis').innerText = `${d.visibility?.value} sm`;
             const c = d.clouds?.[0]; document.getElementById('mCeil').innerText = c ? `${c.type} ${c.altitude.toString().padStart(3,'0')}` : "CLR";
-            
             const alt = d.altimeter?.value; 
             if(alt) {
-                if(currentMetar.altUnit === 'hPa') {
-                    const inHg = (alt * 0.02953).toFixed(2);
-                    document.getElementById('mAlt').innerText = `Q${alt} / A${inHg}`;
-                } else {
-                    const hPa = Math.round(alt * 33.8639);
-                    document.getElementById('mAlt').innerText = `Q${hPa} / A${alt.toFixed(2)}`;
-                }
+                if(currentMetar.altUnit === 'hPa') { const inHg = (alt * 0.02953).toFixed(2); document.getElementById('mAlt').innerText = `Q${alt} / A${inHg}`; }
+                else { const hPa = Math.round(alt * 33.8639); document.getElementById('mAlt').innerText = `Q${hPa} / A${alt.toFixed(2)}`; }
             }
-
             const t = d.temperature?.value, dew = d.dewpoint?.value;
             if(t!=null) {
-                const tStr = `${t}°C`;
-                const dewStr = dew != null ? `${dew}°C` : '--';
-                const fStr = `(${Math.round(t*1.8+32)}°F)`;
-                document.getElementById('mTempC').innerText = `${tStr} / ${dewStr}`;
-                document.getElementById('mTempF').innerText = fStr;
+                document.getElementById('mTempC').innerText = `${t}°C / ${dew!=null?dew:'--'}°C`;
+                document.getElementById('mTempF').innerText = `(${Math.round(t*1.8+32)}°F)`;
                 document.getElementById('mSpread').innerText = `Spread: ${(t-dew).toFixed(1)}°C`;
             }
             const minAgo = Math.floor((new Date() - new Date(d.time.dt)) / 60000);
@@ -462,53 +423,44 @@
             // Frequencies
             const fContainer = document.getElementById('freqContainer');
             fContainer.innerHTML = '';
-            // AVWX format usually: [ { type: "TOWER", frequency: "118.7" }, ... ]
-            // Note: AVWX Free tier sometimes restricts this field, but for standard airports it might appear.
             if(d.frequencies && d.frequencies.length > 0) {
-                 // Sort priority: ATIS, TWR, GND, APP, DEP
                  const priority = { "ATIS":1, "TWR":2, "GND":3, "APP":4, "DEP":5 };
                  d.frequencies.sort((a,b) => {
-                     // Simple sort attempt based on type string inclusion
                      let pa = 99, pb = 99;
                      for(let k in priority) if(a.type.includes(k)) pa = priority[k];
                      for(let k in priority) if(b.type.includes(k)) pb = priority[k];
                      return pa - pb;
                  });
-                 
-                 d.frequencies.forEach(f => {
+                 d.frequencies.slice(0, 6).forEach(f => { // Limit to top 6 to prevent layout break
                      const card = document.createElement('div'); card.className = 'freq-card';
                      card.innerHTML = `<div class="freq-type">${f.type}</div><div class="freq-val">${f.frequency}</div>`;
                      fContainer.appendChild(card);
                  });
-            } else {
-                 fContainer.innerHTML = `<div style="grid-column:span 3; font-size:12px; color:#555; text-align:center;">No Freq Data Available</div>`;
-            }
+            } else { fContainer.innerHTML = `<div style="grid-column:span 3; font-size:12px; color:#555; text-align:center;">No Freq Data Available</div>`; }
 
-            // Calculations
+            // Calcs
             const elev = d.elevation_ft; 
             const temp = currentMetar.temp;
             let currentHpa = currentMetar.alt;
             if(currentMetar.altUnit === 'inHg') currentHpa = currentMetar.alt * 33.8639;
-
             const pa = Math.round(elev + (1013.25 - currentHpa) * 30);
             const isaTemp = 15 - (2 * pa / 1000);
             const isaDev = Math.round(temp - isaTemp);
             const da = Math.round(pa + 120 * (temp - isaTemp));
-
             document.getElementById('calcPA').innerText = `${pa} ft`;
             document.getElementById('calcDA').innerText = `${da} ft`;
             document.getElementById('calcISA').innerText = `${isaDev >= 0 ? '+' : ''}${isaDev}°C`;
 
+            // Solar (Non-Blocking)
             fetch(`https://api.sunrise-sunset.org/json?lat=${d.latitude}&lng=${d.longitude}&formatted=0`)
                 .then(r=>r.json()).then(s => {
                     const t = (iso) => new Date(iso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false});
                     document.getElementById('infoSun').innerText = `🌅 ${t(s.results.sunrise)}  🌇 ${t(s.results.sunset)}`;
-                });
+                }).catch(e=>{});
             const offset = Math.round(d.longitude / 15);
             document.getElementById('calcOffset').innerText = `UTC ${offset >= 0 ? '+' : ''}${offset}`;
             const mv = d.magnetic_variation;
             document.getElementById('infoMag').innerText = mv ? `${Math.abs(mv)}° ${mv < 0 ? 'W' : 'E'}` : '0°';
-
             renderRunwaysComplex();
         }
 
@@ -530,38 +482,26 @@
                 const div = document.createElement('div');
                 div.className = 'rwy-complex';
                 div.innerHTML = `
-                    <div class="rc-header">
-                        <div class="rc-idents"><span style="color:${color1}">${r.ident1}</span> / <span style="color:${color2}">${r.ident2}</span></div>
-                        <div class="rc-dims">${dimStr}</div>
-                    </div>
-                    <div class="rc-strip">
-                        <div class="rc-id-v">${r.ident1}</div>
-                        <div class="rc-data">
-                            <div class="wind-comp"><span>${Math.abs(hw)}kt</span><span class="wc-arrow" style="color:${color1}">${hwArrow}</span></div>
-                            <div class="wind-comp"><span>${Math.abs(xw)}kt</span><span class="wc-arrow" style="color:#0a84ff">${xwArrow}</span></div>
-                            <canvas id="miniRose_${idx}" class="rc-rose" width="36" height="36"></canvas>
-                        </div>
-                        <div class="rc-id-v" style="transform:rotate(0deg);">${r.ident2}</div>
-                    </div>`;
+                    <div class="rc-header"><div class="rc-idents"><span style="color:${color1}">${r.ident1}</span> / <span style="color:${color2}">${r.ident2}</span></div><div class="rc-dims">${dimStr}</div></div>
+                    <div class="rc-strip"><div class="rc-id-v">${r.ident1}</div><div class="rc-data">
+                    <div class="wind-comp"><span>${Math.abs(hw)}kt</span><span class="wc-arrow" style="color:${color1}">${hwArrow}</span></div>
+                    <div class="wind-comp"><span>${Math.abs(xw)}kt</span><span class="wc-arrow" style="color:#0a84ff">${xwArrow}</span></div>
+                    <canvas id="miniRose_${idx}" class="rc-rose" width="36" height="36"></canvas></div><div class="rc-id-v" style="transform:rotate(0deg);">${r.ident2}</div></div>`;
                 container.appendChild(div);
                 drawMiniRose(`miniRose_${idx}`, windMagDir - rwy1Hdg);
             });
         }
-
         function drawMiniRose(id, relDeg) {
             const canvas = document.getElementById(id); if(!canvas) return;
             const ctx = canvas.getContext('2d'); const w=36, h=36, cx=18, cy=18, r=14;
             ctx.clearRect(0,0,w,h);
             ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.strokeStyle = '#8e8e93'; ctx.lineWidth=2; ctx.setLineDash([2,3]); ctx.stroke(); ctx.setLineDash([]);
             if(currentWind.spd > 0) {
-                const rad = (relDeg - 90) * (Math.PI/180); 
-                ctx.save(); ctx.translate(cx, cy); ctx.rotate(rad);
+                const rad = (relDeg - 90) * (Math.PI/180); ctx.save(); ctx.translate(cx, cy); ctx.rotate(rad);
                 ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(4, 0); ctx.strokeStyle = '#0a84ff'; ctx.lineWidth = 2; ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(8, -3); ctx.lineTo(2, 0); ctx.lineTo(8, 3); ctx.fillStyle = '#0a84ff'; ctx.fill();
-                ctx.restore();
+                ctx.beginPath(); ctx.moveTo(8, -3); ctx.lineTo(2, 0); ctx.lineTo(8, 3); ctx.fillStyle = '#0a84ff'; ctx.fill(); ctx.restore();
             }
         }
-
         function renderTaf(d) {
             document.getElementById('rawTaf').innerText = d.raw;
             tafDataCache = d.forecast; const bar = document.getElementById('tafBar'); const axis = document.getElementById('tafAxis'); bar.innerHTML = ''; axis.innerHTML = '';
@@ -606,144 +546,53 @@
             }
         }
         
-        // --- TOOLS LOGIC ---
-        // METAR Smart Decoder
+        // --- TOOLS: DECODER ---
         const WX_DATA = {
-            // Descriptors
             "MI":"Shallow", "PR":"Partial", "BC":"Patches", "DR":"Drifting", "BL":"Blowing", "SH":"Shower", "TS":"Thunderstorm", "FZ":"Freezing",
-            // Precip
             "DZ":"Drizzle", "RA":"Rain", "SN":"Snow", "SG":"Snow Grains", "IC":"Ice Crystals", "PL":"Ice Pellets", "GR":"Hail", "GS":"Small Hail", "UP":"Unknown",
-            // Obscure
             "BR":"Mist", "FG":"Fog", "FU":"Smoke", "VA":"Ash", "DU":"Dust", "SA":"Sand", "HZ":"Haze", "PY":"Spray",
-            // Other
             "PO":"Dust Devils", "SQ":"Squall", "FC":"Funnel Cloud", "SS":"Sandstorm", "DS":"Duststorm",
-            // Cloud
             "SKC":"Clear", "CLR":"Clear", "FEW":"Few", "SCT":"Scattered", "BKN":"Broken", "OVC":"Overcast", "VV":"Vertical Vis", "CAVOK":"Ceiling & Vis OK"
         };
-        
-        // Populate the Cheat Sheet List on Load
-        const codeListEl = document.getElementById('codeList');
-        codeListEl.innerHTML = '';
-        Object.keys(WX_DATA).sort().forEach(key => {
-            const item = document.createElement('div');
-            item.className = 'code-item';
-            item.innerHTML = `<b>${key}</b> ${WX_DATA[key]}`;
-            codeListEl.appendChild(item);
-        });
-
+        const codeListEl = document.getElementById('codeList'); codeListEl.innerHTML = '';
+        Object.keys(WX_DATA).sort().forEach(key => { const item = document.createElement('div'); item.className = 'code-item'; item.innerHTML = `<b>${key}</b> ${WX_DATA[key]}`; codeListEl.appendChild(item); });
         function decode(input) {
-            input = input.trim().toUpperCase();
-            if(!input) { document.getElementById('decodeOut').innerText = "..."; return; }
-            
-            // Check full match
-            if(WX_DATA[input]) {
-                document.getElementById('decodeOut').innerText = WX_DATA[input];
-                return;
-            }
-
-            // Parsing Logic
-            let res = [];
-            let rem = input;
-            
-            // Intensity
-            if(rem.startsWith('-')) { res.push("Light"); rem = rem.substring(1); }
-            else if(rem.startsWith('+')) { res.push("Heavy"); rem = rem.substring(1); }
-            else if(rem.startsWith('VC')) { res.push("Vicinity"); rem = rem.substring(2); }
-
-            // Split into 2-char chunks and lookup
-            // E.g. TSRA -> TS, RA
-            // BCFG -> BC, FG
+            input = input.trim().toUpperCase(); if(!input) { document.getElementById('decodeOut').innerText = "..."; return; }
+            if(WX_DATA[input]) { document.getElementById('decodeOut').innerText = WX_DATA[input]; return; }
+            let res = [], rem = input;
+            if(rem.startsWith('-')) { res.push("Light"); rem = rem.substring(1); } else if(rem.startsWith('+')) { res.push("Heavy"); rem = rem.substring(1); } else if(rem.startsWith('VC')) { res.push("Vicinity"); rem = rem.substring(2); }
             let foundAny = false;
-            while(rem.length >= 2) {
-                let chunk = rem.substring(0,2);
-                if(WX_DATA[chunk]) {
-                    res.push(WX_DATA[chunk]);
-                    rem = rem.substring(2);
-                    foundAny = true;
-                } else {
-                    // Try 3 chars? rare. WMO codes are mostly 2.
-                    // Just break to avoid infinite loop
-                    break;
-                }
-            }
-            
-            if(foundAny && rem.length === 0) {
-                document.getElementById('decodeOut').innerText = res.join(" ");
-            } else {
-                document.getElementById('decodeOut').innerText = "Unknown / Custom";
-            }
+            while(rem.length >= 2) { let chunk = rem.substring(0,2); if(WX_DATA[chunk]) { res.push(WX_DATA[chunk]); rem = rem.substring(2); foundAny = true; } else break; }
+            if(foundAny && rem.length === 0) document.getElementById('decodeOut').innerText = res.join(" "); else document.getElementById('decodeOut').innerText = "Unknown / Custom";
         }
 
-        // Timer
-        function formatTime(ms) {
-            const d = new Date(ms);
-            return d.toISOString().substr(11, 8);
-        }
-        function updateTimerDisplay() {
-            const now = Date.now();
-            const diff = now - startTime + elapsed;
-            document.getElementById('timerDisplay').innerText = formatTime(diff);
-        }
-        function startTimer() {
-            if(!running) {
-                startTime = Date.now();
-                timerInterval = setInterval(updateTimerDisplay, 100);
-                running = true;
-            }
-        }
-        function stopTimer() {
-            if(running) {
-                clearInterval(timerInterval);
-                elapsed += Date.now() - startTime;
-                running = false;
-            } else {
-                // Reset
-                elapsed = 0;
-                document.getElementById('timerDisplay').innerText = "00:00:00";
-                document.getElementById('lapList').innerHTML = "";
-            }
-        }
-        function lapTimer() {
-            if(running) {
-                const now = Date.now();
-                const diff = now - startTime + elapsed;
-                const div = document.createElement('div');
-                div.className = 'lap-item';
-                div.innerHTML = `<span>Lap</span><span>${formatTime(diff)}</span>`;
-                document.getElementById('lapList').prepend(div);
-            }
-        }
+        // --- TOOLS: TIMER ---
+        function formatTime(ms) { const d = new Date(ms); return d.toISOString().substr(11, 8); }
+        function updateTimerDisplay() { const now = Date.now(); const diff = now - startTime + elapsed; document.getElementById('timerDisplay').innerText = formatTime(diff); }
+        function startTimer() { if(!running) { startTime = Date.now(); timerInterval = setInterval(updateTimerDisplay, 100); running = true; } }
+        function stopTimer() { if(running) { clearInterval(timerInterval); elapsed += Date.now() - startTime; running = false; } else { elapsed = 0; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('lapList').innerHTML = ""; } }
+        function lapTimer() { if(running) { const now = Date.now(); const diff = now - startTime + elapsed; const div = document.createElement('div'); div.className = 'lap-item'; div.innerHTML = `<span>Lap</span><span>${formatTime(diff)}</span>`; document.getElementById('lapList').prepend(div); } }
 
-        // ISA Calc
+        // --- TOOLS: ISA ---
         function calcIsaTool() {
             const alt = parseFloat(document.getElementById('isaInput').value);
-            if(isNaN(alt)) {
-                document.getElementById('isaTempOut').innerText = "--";
-                document.getElementById('isaPressOut').innerText = "--";
-                return;
-            }
-            // ISA Temp = 15 - 1.98 * (alt/1000)
+            if(isNaN(alt)) { document.getElementById('isaTempOut').innerText = "--"; document.getElementById('isaPressOut').innerText = "--"; return; }
             const t = 15 - (1.98 * (alt/1000));
-            // ISA Press = 29.92 * (1 - 6.8753e-6 * alt)^5.2561
             const p = 29.92 * Math.pow((1 - (0.0000068753 * alt)), 5.2561);
-            
             document.getElementById('isaTempOut').innerText = t.toFixed(1) + "°C";
             document.getElementById('isaPressOut').innerText = p.toFixed(2) + " inHg";
         }
 
-        // Converters
+        // --- TOOLS: CONVERTERS ---
         function convSpeed(type) {
-            const kts = document.getElementById('cKts');
-            const mph = document.getElementById('cMph');
-            const kph = document.getElementById('cKph');
+            const kts = document.getElementById('cKts'), mph = document.getElementById('cMph'), kph = document.getElementById('cKph');
             let val = 0;
             if(type==='kts') { val = parseFloat(kts.value); mph.value=(val*1.15078).toFixed(1); kph.value=(val*1.852).toFixed(1); }
             if(type==='mph') { val = parseFloat(mph.value); kts.value=(val/1.15078).toFixed(1); kph.value=(val*1.60934).toFixed(1); }
             if(type==='kph') { val = parseFloat(kph.value); kts.value=(val/1.852).toFixed(1); mph.value=(val/1.60934).toFixed(1); }
         }
         function convPress(type) {
-            const inhg = document.getElementById('cInhg');
-            const hpa = document.getElementById('cHpa');
+            const inhg = document.getElementById('cInhg'), hpa = document.getElementById('cHpa');
             let val = 0;
             if(type==='inhg') { val = parseFloat(inhg.value); hpa.value=(val*33.8639).toFixed(1); }
             if(type==='hpa') { val = parseFloat(hpa.value); inhg.value=(val*0.02953).toFixed(2); }
