@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Pilot EFB V45</title>
+    <title>Notion Pilot EFB V46</title>
     <style>
         :root {
             --bg: #000000; --card-bg: #1c1c1e; --text: #ffffff; --sub-text: #8e8e93;
@@ -160,7 +160,7 @@
         .ac-btn { background: var(--accent); color: #fff; border: none; padding: 0 16px; border-radius: 6px; font-weight: 700; cursor: pointer; }
         .ac-btn:disabled { opacity: 0.5; cursor: default; }
 
-        /* API KEY MODAL OVERLAY (Simple) */
+        /* API KEY MODAL OVERLAY */
         .api-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:999; display:none; align-items:center; justify-content:center; }
         .api-box { background: var(--card-bg); padding:20px; border-radius:12px; border:1px solid var(--border); width:90%; max-width:350px; text-align:center; }
     </style>
@@ -294,6 +294,7 @@
     </div>
 
     <div id="tab-tools" class="view-section">
+        
         <div class="section-title" style="margin-top:0;">Personal Minimums (Go/No-Go)</div>
         <div class="info-card" style="border-left: 4px solid #555;" id="minsCard">
             <div class="conv-row">
@@ -312,12 +313,38 @@
             <div id="minsReason" style="font-size:11px; color:#aaa; margin-top:4px; text-align:center;"></div>
         </div>
 
-        <div class="section-title">METAR/TAF Helper</div>
-        <input type="text" placeholder="Decode (e.g. +TSRA, BCFG)" class="conv-inp" oninput="decode(this.value)">
-        <div id="decodeOut" style="color:var(--accent); margin:4px 0 8px 0; font-weight:600; font-size:14px; min-height:18px;">...</div>
-        <button class="tool-btn" onclick="document.getElementById('codeList').classList.toggle('hidden')">Show Reference Codes</button>
-        <div id="codeList" class="code-list hidden"></div>
+        <div class="section-title">E6B Flight Computer</div>
+        <div class="info-card" style="margin-bottom:8px;">
+            <div style="font-size:11px; color:var(--accent); font-weight:700; margin-bottom:6px; text-transform:uppercase;">Atmospheric Inputs</div>
+            <div class="conv-row">
+                <div style="flex:1"><div class="conv-lbl">Indicated Alt (ft)</div><input type="number" id="e6bAlt" class="conv-inp" placeholder="0" oninput="calcE6B()"></div>
+                <div style="flex:1"><div class="conv-lbl">Altimeter (hPa)</div><input type="number" id="e6bQnh" class="conv-inp" placeholder="1013" value="1013" oninput="calcE6B()"></div>
+                <div style="flex:1"><div class="conv-lbl">Act. Temp (°C)</div><input type="number" id="e6bTemp" class="conv-inp" placeholder="15" oninput="calcE6B()"></div>
+            </div>
+            <div class="conv-row">
+                <div style="flex:1"><div class="conv-lbl">CAS / IAS (kts)</div><input type="number" id="e6bIas" class="conv-inp" placeholder="Speed" oninput="calcE6B()"></div>
+            </div>
+        </div>
 
+        <div class="info-grid">
+            <div class="info-card"><div class="ic-lbl">Pressure Alt</div><div class="ic-val" id="resPA">--</div></div>
+            <div class="info-card"><div class="ic-lbl">Density Alt</div><div class="ic-val" id="resDA" style="color:var(--accent);">--</div></div>
+            <div class="info-card"><div class="ic-lbl">ISA Deviation</div><div class="ic-val" id="resISA">--</div></div>
+            <div class="info-card"><div class="ic-lbl">True Airspeed</div><div class="ic-val" id="resTAS" style="color:var(--success);">--</div></div>
+            <div class="info-card"><div class="ic-lbl">Mach Number</div><div class="ic-val" id="resMach">--</div></div>
+            <div class="info-card"><div class="ic-lbl">Speed of Sound</div><div class="ic-val-sm" id="resSoS">--</div></div>
+        </div>
+
+        <div class="section-title">Tools</div>
+        <div class="info-card">
+            <div style="margin-bottom:8px;">
+                <input type="text" placeholder="Decode (e.g. +TSRA, BCFG)" class="conv-inp" oninput="decode(this.value)">
+                <div id="decodeOut" style="color:var(--accent); margin:4px 0 0 0; font-weight:600; font-size:14px; min-height:18px;">...</div>
+            </div>
+            <button class="tool-btn" onclick="document.getElementById('codeList').classList.toggle('hidden')">Show METAR Codes</button>
+            <div id="codeList" class="code-list hidden"></div>
+        </div>
+        
         <div class="section-title">Flight Timer</div>
         <div class="info-card">
             <div id="timerDisplay" class="timer-display">00:00:00</div>
@@ -327,28 +354,6 @@
                 <button class="t-btn tb-stop" onclick="stopTimer()">Stop</button>
             </div>
             <div id="lapList" class="lap-list"></div>
-        </div>
-
-        <div class="section-title">ISA Calculator</div>
-        <div class="info-card">
-            <div style="display:flex; gap:8px;">
-                <div style="flex:1;"><div class="conv-lbl">Altitude (ft)</div><input type="number" id="isaInput" class="conv-inp" oninput="calcIsaTool()" placeholder="e.g. 5000"></div>
-                <div style="flex:1;"><div class="conv-lbl">Std Temp</div><div id="isaTempOut" class="ic-val">--</div></div>
-                <div style="flex:1;"><div class="conv-lbl">Std Press</div><div id="isaPressOut" class="ic-val" style="font-size:13px;">--</div></div>
-            </div>
-        </div>
-
-        <div class="section-title">Quick Convert</div>
-        <div class="info-card">
-            <div class="conv-row">
-                <div style="flex:1"><div class="conv-lbl">Knots</div><input type="number" id="cKts" class="conv-inp" oninput="convSpeed('kts')"></div>
-                <div style="flex:1"><div class="conv-lbl">MPH</div><input type="number" id="cMph" class="conv-inp" oninput="convSpeed('mph')"></div>
-                <div style="flex:1"><div class="conv-lbl">KPH</div><input type="number" id="cKph" class="conv-inp" oninput="convSpeed('kph')"></div>
-            </div>
-            <div class="conv-row">
-                <div style="flex:1"><div class="conv-lbl">inHg</div><input type="number" id="cInhg" class="conv-inp" oninput="convPress('inhg')"></div>
-                <div style="flex:1"><div class="conv-lbl">hPa</div><input type="number" id="cHpa" class="conv-inp" oninput="convPress('hpa')"></div>
-            </div>
         </div>
     </div>
 
@@ -419,7 +424,7 @@
             document.getElementById('tab-'+name).classList.add('active');
             event.target.classList.add('active');
             if(name === 'info' && stationData) renderRunwaysComplex();
-            if(name === 'world') updateClock(); // Force immediate update
+            if(name === 'world') updateClock(); 
         }
         function toggleUnits() {
             useMetric = !useMetric;
@@ -643,7 +648,7 @@
 
         // --- PERSONAL MINIMUMS CHECKER ---
         function checkMins() {
-            if (!currentMetar || !stationData) { document.getElementById('minsResult').innerText = "NO DATA"; return; }
+            if (!currentMetar || !stationData) { document.getElementById('minsResult').innerText = "LOAD METAR DATA"; return; }
             
             const limitXW = parseFloat(document.getElementById('minXW').value) || 0;
             const limitCeil = parseFloat(document.getElementById('minCeil').value) || 0;
@@ -686,6 +691,50 @@
             }
         }
 
+        // --- E6B CALC ---
+        function calcE6B() {
+            // Inputs
+            const alt = parseFloat(document.getElementById('e6bAlt').value) || 0;
+            const qnh = parseFloat(document.getElementById('e6bQnh').value) || 1013.25;
+            let tempInput = document.getElementById('e6bTemp').value;
+            // Default to Std if empty
+            const stdTempC = 15 - (0.0019812 * alt);
+            const actTempC = tempInput === "" ? stdTempC : parseFloat(tempInput);
+            const ias = parseFloat(document.getElementById('e6bIas').value) || 0;
+
+            // PA: Alt + (1013 - QNH) * 30 
+            const pa = alt + (1013.25 - qnh) * 27.3;
+            document.getElementById('resPA').innerText = Math.round(pa) + " ft";
+
+            // ISA Dev
+            const isaDev = actTempC - (15 - (0.00198 * pa));
+            const devSign = isaDev >= 0 ? "+" : "";
+            document.getElementById('resISA').innerText = `ISA ${devSign}${Math.round(isaDev)}°C`;
+
+            // DA: PA + [118.8 * (ActTemp - StdTempAtPA)]
+            const da = pa + (118.8 * (actTempC - (15 - (0.00198 * pa))));
+            document.getElementById('resDA').innerText = Math.round(da) + " ft";
+
+            // TAS & Mach
+            const tempK = actTempC + 273.15;
+            const speedOfSoundKts = 38.967854 * Math.sqrt(tempK);
+            document.getElementById('resSoS').innerText = Math.round(speedOfSoundKts) + " kts";
+
+            if (ias > 0) {
+                // TAS = IAS * sqrt(stdDensity / density)
+                const pressAtPA = 1013.25 * Math.pow(1 - (0.0000225577 * pa), 5.25588);
+                const density = (pressAtPA * 100) / (287.05 * tempK);
+                const stdDensity = 1.225;
+                const tas = ias * Math.sqrt(stdDensity / density);
+                document.getElementById('resTAS').innerText = Math.round(tas) + " kts";
+                const mach = tas / speedOfSoundKts;
+                document.getElementById('resMach').innerText = "M " + mach.toFixed(2);
+            } else {
+                document.getElementById('resTAS').innerText = "--";
+                document.getElementById('resMach').innerText = "--";
+            }
+        }
+
         // --- TAF RENDER ---
         function renderTaf(d) {
             document.getElementById('rawTaf').innerText = d.raw || "No TAF Data";
@@ -714,7 +763,7 @@
         // --- WORLD CLOCK WITH ONLINE SEARCH ---
         function initWorldClock() {
             // Load Saved
-            const stored = localStorage.getItem('efb_cities_v45');
+            const stored = localStorage.getItem('efb_cities_v46');
             if(stored) {
                 cityList = JSON.parse(stored);
             } else {
@@ -762,7 +811,7 @@
             updateClock();
         }
         function removeCity(id) { cityList = cityList.filter(c => c.id !== id); saveCities(); updateClock(); }
-        function saveCities() { localStorage.setItem('efb_cities_v45', JSON.stringify(cityList)); }
+        function saveCities() { localStorage.setItem('efb_cities_v46', JSON.stringify(cityList)); }
         
         function updateClock() {
             const now = new Date();
@@ -777,10 +826,8 @@
                     // Relative Time Logic
                     const targetDateStr = now.toLocaleString('en-US', { timeZone: c.z });
                     const targetDate = new Date(targetDateStr);
-                    const dayDiffVal = targetDate.getDate() - now.getDate(); // Simple check, fails on month boundary but ok for demo
-                    let dayLabel = "Today";
-                    // Better day diff logic using day of week
                     const localDay = now.getDay(); const targetDay = targetDate.getDay();
+                    let dayLabel = "Today";
                     if(targetDay !== localDay) {
                         if(targetDay === (localDay + 1) % 7) dayLabel = "Tomorrow";
                         else if(localDay === (targetDay + 1) % 7) dayLabel = "Yesterday";
@@ -829,30 +876,7 @@
         function startTimer() { if(!running) { startTime = Date.now(); timerInterval = setInterval(updateTimerDisplay, 100); running = true; } }
         function stopTimer() { if(running) { clearInterval(timerInterval); elapsed += Date.now() - startTime; running = false; } else { elapsed = 0; document.getElementById('timerDisplay').innerText = "00:00:00"; document.getElementById('lapList').innerHTML = ""; } }
         function lapTimer() { if(running) { const now = Date.now(); const diff = now - startTime + elapsed; const div = document.createElement('div'); div.className = 'lap-item'; div.innerHTML = `<span>Lap</span><span>${formatTime(diff)}</span>`; document.getElementById('lapList').prepend(div); } }
-        // ISA
-        function calcIsaTool() {
-            const alt = parseFloat(document.getElementById('isaInput').value);
-            if(isNaN(alt)) { document.getElementById('isaTempOut').innerText = "--"; document.getElementById('isaPressOut').innerText = "--"; return; }
-            const t = 15 - (1.98 * (alt/1000));
-            const p = 29.92 * Math.pow((1 - (0.0000068753 * alt)), 5.2561);
-            document.getElementById('isaTempOut').innerText = t.toFixed(1) + "°C";
-            document.getElementById('isaPressOut').innerText = p.toFixed(2) + " inHg";
-        }
-        // Converters
-        function convSpeed(type) {
-            const kts = document.getElementById('cKts'), mph = document.getElementById('cMph'), kph = document.getElementById('cKph');
-            let val = 0;
-            if(type==='kts') { val = parseFloat(kts.value); mph.value=(val*1.15078).toFixed(1); kph.value=(val*1.852).toFixed(1); }
-            if(type==='mph') { val = parseFloat(mph.value); kts.value=(val/1.15078).toFixed(1); kph.value=(val*1.60934).toFixed(1); }
-            if(type==='kph') { val = parseFloat(kph.value); kts.value=(val/1.852).toFixed(1); mph.value=(val/1.60934).toFixed(1); }
-        }
-        function convPress(type) {
-            const inhg = document.getElementById('cInhg'), hpa = document.getElementById('cHpa');
-            let val = 0;
-            if(type==='inhg') { val = parseFloat(inhg.value); hpa.value=(val*33.8639).toFixed(1); }
-            if(type==='hpa') { val = parseFloat(hpa.value); inhg.value=(val*0.02953).toFixed(2); }
-        }
-
+        
         // START
         initApp();
     </script>
