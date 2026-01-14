@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Pilot Widget V20</title>
+    <title>Notion Pilot Widget V21</title>
     <style>
         :root {
             --bg: #ffffff; --text: #37352f; --sub-text: #787774;
@@ -25,6 +25,25 @@
             display: flex; flex-direction: column; gap: 10px;
         }
 
+        /* --- PRINT STYLES (Kneeboard Mode) --- */
+        @media print {
+            body { background-color: #fff !important; color: #000 !important; padding: 0 !important; display: block !important; }
+            .top-bar button, .top-bar input, .tabs, .tool-bar, .visual-box, #memoView, #toolsView, #infoView { display: none !important; }
+            /* Force show data views */
+            #metarView, #tafView { display: block !important; }
+            /* Hide hidden class for print */
+            .hidden { display: block !important; }
+            /* Formatting */
+            .cat-badge { border: 1px solid #000; color: #000 !important; background: none !important; }
+            .raw-box { border: 1px solid #ccc; background: #fff !important; color: #000 !important; white-space: pre-wrap; font-size: 10pt; }
+            .section-title { border-bottom: 2px solid #000; color: #000; font-weight: bold; margin-top: 20px; }
+            #icao { display: none; }
+            /* Custom Header for Print */
+            .print-header { display: block !important; font-size: 18pt; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #000; }
+            .notam-item { border-left: 3px solid #000; margin-bottom: 5px; page-break-inside: avoid; }
+        }
+        .print-header { display: none; }
+
         /* HEADER */
         .top-bar { display: flex; align-items: center; gap: 8px; height: 28px; }
         .search-wrapper { flex-grow: 1; position: relative; }
@@ -37,6 +56,8 @@
         input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: searchfield-cancel-button; cursor: pointer; }
         .cat-badge { padding: 4px 8px; border-radius: 4px; color: white; font-weight: 700; font-size: 11px; min-width: 40px; text-align: center; }
         .zulu-clock { font-family: 'SF Mono', monospace; font-size: 11px; color: var(--text); font-weight: 600; background: var(--code-bg); padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border); white-space: nowrap; }
+        .print-btn { background: transparent; border: none; cursor: pointer; font-size: 14px; padding: 4px; border-radius: 4px; }
+        .print-btn:hover { background: var(--code-bg); }
 
         /* TABS */
         .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 4px; overflow-x: auto; }
@@ -51,10 +72,6 @@
         .data-item .value { font-weight: 600; display: flex; align-items: center; gap: 6px; font-size: 12px; }
         #windArrowIcon { width: 14px; height: 14px; fill: var(--text); transition: transform 0.5s ease; }
 
-        /* NOTAMs */
-        .notam-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
-        .notam-item { background: var(--code-bg); padding: 8px; border-radius: 4px; font-size: 11px; font-family: 'SF Mono', monospace; border-left: 2px solid var(--warn); line-height: 1.4; color: var(--text); }
-
         /* VISUAL RUNWAY */
         .visual-box { display: flex; gap: 10px; background: var(--code-bg); border-radius: 6px; padding: 8px; margin-bottom: 8px; align-items: center; }
         .visual-canvas { width: 60px; height: 60px; }
@@ -64,10 +81,19 @@
         .limit-alert { color: var(--ifr); font-weight: 800; font-size: 10px; animation: flash 1s infinite; }
         @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
+        /* SPREAD/FOG METER */
+        .spread-bar-bg { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+        .spread-bar-fill { height: 100%; width: 100%; transition: width 0.5s ease, background-color 0.5s ease; }
+
         /* FORECAST TREND */
         .trend-box { background: rgba(241, 196, 15, 0.15); border-left: 3px solid var(--warn); padding: 6px 8px; border-radius: 4px; margin-bottom: 8px; display: none; }
         .trend-label { font-size: 9px; font-weight: 700; color: var(--warn); text-transform: uppercase; }
         .trend-text { font-size: 11px; color: var(--text); font-family: 'SF Mono', monospace; margin-top: 2px; }
+
+        /* NOTAMs */
+        .notam-container { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+        .notam-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
+        .notam-item { background: var(--code-bg); padding: 8px; border-radius: 4px; font-size: 11px; font-family: 'SF Mono', monospace; border-left: 2px solid var(--warn); line-height: 1.4; color: var(--text); }
 
         /* INFO & TOOLS */
         .info-card { padding: 4px 0; }
@@ -103,6 +129,8 @@
 </head>
 <body>
 
+    <div class="print-header">FLIGHT BRIEFING: <span id="printIcao"></span></div>
+
     <div class="top-bar">
         <div class="search-wrapper">
             <input type="search" list="airports" id="icao" value="RCTP" onfocus="this.select()" onclick="this.select()" onkeydown="if(event.key==='Enter') loadData()">
@@ -112,12 +140,12 @@
         </div>
         <div id="flightCat" class="cat-badge hidden">VFR</div>
         <div id="zuluClock" class="zulu-clock">00:00Z</div>
+        <button class="print-btn" onclick="window.print()" title="Print Briefing">🖨️</button>
     </div>
 
     <div class="tabs">
         <div class="tab active" onclick="switchTab('metar')">METAR</div>
-        <div class="tab" onclick="switchTab('taf')">TAF</div>
-        <div class="tab" onclick="switchTab('notam')">NOTAM</div>
+        <div class="tab" onclick="switchTab('taf')">TAF & NOTAM</div>
         <div class="tab" onclick="switchTab('info')">INFO</div>
         <div class="tab" onclick="switchTab('tools')">TOOLS</div>
         <div class="tab" onclick="switchTab('memo')">MEMO</div>
@@ -159,17 +187,25 @@
         
         <div class="raw-box" id="rawMetar">Loading...</div>
 
-        <div style="border-top:1px solid var(--border); padding-top:8px; margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-            <div><div class="adv-label">Est. Cloud Base (AGL)</div><div class="adv-val" id="estBase">--</div></div>
+        <div class="advanced-data">
+            <div>
+                <div class="adv-label">Est. Cloud Base (AGL) / Spread</div>
+                <div class="adv-val" id="estBase">--</div>
+                <div class="spread-bar-bg"><div id="spreadBar" class="spread-bar-fill" style="width:100%; background-color:#2ecc71;"></div></div>
+            </div>
             <div style="text-align:right;"><div class="adv-label">Density Altitude</div><div class="adv-val" id="densityAlt">--</div></div>
         </div>
     </div>
 
-    <div id="tafView" class="hidden"><div class="raw-box" id="rawTaf" style="font-size:12px; color:var(--text);">Checking forecast...</div></div>
-
-    <div id="notamView" class="hidden">
-        <div class="notam-list" id="notamList">
-            <div style="color:var(--sub-text); font-size:11px;">Fetch NOTAMs...</div>
+    <div id="tafView" class="hidden">
+        <div class="section-title" style="margin-top:0;">Forecast (TAF)</div>
+        <div class="raw-box" id="rawTaf" style="font-size:12px; color:var(--text);">Checking forecast...</div>
+        
+        <div class="notam-container">
+            <div class="section-title">Notices (NOTAMs)</div>
+            <div class="notam-list" id="notamList">
+                <div style="color:var(--sub-text); font-size:11px;">Fetch NOTAMs...</div>
+            </div>
         </div>
     </div>
 
@@ -297,6 +333,9 @@
         async function loadData() {
             const input = document.getElementById('icao').value.toUpperCase();
             if(!input) return; currentIcao = input;
+            
+            // Set Print Header
+            document.getElementById('printIcao').innerText = currentIcao;
             document.getElementById('skyvectorLink').href = `https://skyvector.com/airport/${currentIcao}`;
 
             if (AIRPORT_DB[currentIcao]) renderInfo(AIRPORT_DB[currentIcao]);
@@ -398,6 +437,8 @@
                     sr.innerText = fmt(rise);
                     ss.innerText = fmt(set);
                     ct.innerText = fmt(parse(data.results.civil_twilight_end));
+                    
+                    updateCountdown(); // Call immediately
                 }
             } catch(e) { sr.innerText="Error"; }
         }
@@ -429,11 +470,11 @@
             const dir=data.wind_direction?.value, spd=data.wind_speed?.value||0;
             windData={dir:dir, speed:spd};
             
-            // --- SYNCED WIND ARROW ---
+            // ARROW SYNC: Wind is FROM. Arrow points WITH.
             const arrow=document.getElementById('windArrowIcon');
             if(dir!==null) {
                 document.getElementById('windText').innerText=`${dir}° / ${spd}kt`;
-                arrow.style.transform=`rotate(${dir}deg)`; // Points WITH the wind
+                arrow.style.transform=`rotate(${dir}deg)`; 
             } else {
                 document.getElementById('windText').innerText='VRB/Calm';
                 arrow.style.display = 'none';
@@ -459,10 +500,17 @@
             } else daEl.innerText="--";
 
             const baseEl=document.getElementById('estBase');
+            const bar=document.getElementById('spreadBar');
             if(tempC!=null && d!=null) {
                 const spread=(tempC-d);
                 const base=Math.round((spread/2.5)*1000);
-                baseEl.innerText=`~${base.toLocaleString()} ft AGL`;
+                baseEl.innerText=`~${base.toLocaleString()}ft / Spread: ${spread.toFixed(1)}°`;
+                
+                // Spread Visual
+                // Max spread visualized = 10 deg (Green). 0 deg = Red.
+                const pct = Math.min(Math.max(spread * 10, 0), 100);
+                bar.style.width = pct + "%";
+                bar.style.backgroundColor = (spread <= 2) ? "#e74c3c" : (spread <= 4) ? "#f1c40f" : "#2ecc71";
             }
 
             document.getElementById('vis').innerText=data.visibility?.value+' sm';
@@ -524,16 +572,13 @@
 
         function copyText() { navigator.clipboard.writeText(currentRawText); }
         function switchTab(t) {
-            ['metar','taf','notam','info','tools','memo'].forEach(v => document.getElementById(v+'View').classList.add('hidden'));
+            ['metar','taf','info','tools','memo'].forEach(v => document.getElementById(v+'View').classList.add('hidden'));
             document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-            document.getElementById(t+'View').classList.remove('hidden');
-            const tabs = document.querySelectorAll('.tab');
-            if(t==='metar') tabs[0].classList.add('active');
-            if(t==='taf') tabs[1].classList.add('active');
-            if(t==='notam') tabs[2].classList.add('active');
-            if(t==='info') tabs[3].classList.add('active');
-            if(t==='tools') tabs[4].classList.add('active');
-            if(t==='memo') tabs[5].classList.add('active');
+            if(t==='metar') { document.getElementById('metarView').classList.remove('hidden'); document.querySelectorAll('.tab')[0].classList.add('active'); }
+            else if(t==='taf' || t==='notam') { document.getElementById('tafView').classList.remove('hidden'); document.querySelectorAll('.tab')[1].classList.add('active'); }
+            else if(t==='info') { document.getElementById('infoView').classList.remove('hidden'); document.querySelectorAll('.tab')[2].classList.add('active'); }
+            else if(t==='tools') { document.getElementById('toolsView').classList.remove('hidden'); document.querySelectorAll('.tab')[3].classList.add('active'); }
+            else if(t==='memo') { document.getElementById('memoView').classList.remove('hidden'); document.querySelectorAll('.tab')[4].classList.add('active'); }
         }
 
         loadData();
