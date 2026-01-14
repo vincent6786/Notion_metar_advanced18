@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Pilot EFB V36</title>
+    <title>Notion Pilot EFB V37</title>
     <style>
         :root {
             --bg: #000000; --card-bg: #1c1c1e; --text: #ffffff; --sub-text: #8e8e93;
@@ -60,10 +60,11 @@
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         /* INFO GRID */
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
         .info-card { background: var(--card-bg); padding: 10px; border-radius: 8px; }
         .ic-lbl { font-size: 11px; color: var(--sub-text); text-transform: uppercase; }
         .ic-val { font-size: 15px; font-weight: 600; color: #fff; margin-top: 2px; }
+        .ic-val-sm { font-size: 13px; font-weight: 500; color: #fff; margin-top: 2px; font-family: 'SF Mono', monospace; }
 
         /* RUNWAY VISUALIZER */
         .rwy-section-head { display: flex; justify-content: space-between; align-items: center; margin: 20px 0 10px 0; }
@@ -129,6 +130,8 @@
         .info-val { font-weight: 500; text-align: right; }
         .raw-text { font-family: 'SF Mono', monospace; font-size: 11px; color: #d0d0d0; margin-top: 6px; line-height: 1.4; white-space: pre-wrap; background: rgba(255,255,255,0.05); padding: 6px; border-radius: 6px; }
         .hidden { display: none !important; }
+        
+        .section-title { font-weight:700; color:var(--sub-text); margin: 20px 0 8px 0; font-size:12px; }
     </style>
 </head>
 <body>
@@ -210,6 +213,23 @@
 
         <div class="info-grid">
             <div class="info-card">
+                <div class="ic-lbl">ICAO / IATA</div>
+                <div class="ic-val" id="infoCodes">--</div>
+            </div>
+            <div class="info-card">
+                <div class="ic-lbl">Elevation</div>
+                <div class="ic-val" id="infoElev">--</div>
+            </div>
+            <div class="info-card" style="grid-column: span 2;">
+                <div class="ic-lbl">Coordinates</div>
+                <div class="ic-val-sm" id="infoCoords">--</div>
+            </div>
+        </div>
+
+        <div class="section-title">ATMOSPHERE & TIME</div>
+        
+        <div class="info-grid">
+            <div class="info-card">
                 <div class="ic-lbl">Pressure Alt</div>
                 <div class="ic-val" id="calcPA">--</div>
             </div>
@@ -265,7 +285,7 @@
         
         // State
         let currentWind = { dir:0, spd:0 }; 
-        let currentMetar = { temp: 15, alt: 1013, altUnit: 'hPa' }; // Added unit tracking
+        let currentMetar = { temp: 15, alt: 1013, altUnit: 'hPa' };
         let stationData = null;
         let useMetric = true; 
         let tafDataCache = null;
@@ -285,7 +305,6 @@
             if(stationData) renderRunwaysComplex();
         }
 
-        // Header Logic
         function toggleClearBtn() {
             const val = document.getElementById('icao').value;
             document.getElementById('clearBtn').style.display = val ? 'block' : 'none';
@@ -297,7 +316,6 @@
         }
         setInterval(updateClock, 1000); updateClock();
 
-        // Data Loader
         async function loadData() {
             const icao = document.getElementById('icao').value.toUpperCase();
             if(!icao) return;
@@ -315,14 +333,10 @@
                 const resMe = await fetch(`https://avwx.rest/api/metar/${icao}`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
                 const metar = await resMe.json();
                 
-                // Update State
                 currentWind = { dir: metar.wind_direction?.value||0, spd: metar.wind_speed?.value||0 };
                 
-                // --- FIX: Detect Altimeter Unit ---
                 let altVal = metar.altimeter?.value || 1013;
                 let altUnit = 'hPa';
-                // Threshold: If alt < 200, it's likely inHg (standard is ~29.92)
-                // If alt > 200, it's likely hPa (standard is ~1013)
                 if(altVal < 200) altUnit = 'inHg';
 
                 currentMetar = { 
@@ -334,13 +348,11 @@
                 renderMetar(metar);
                 renderInfo(stationData); 
                 
-                // 3. TAF & NOTAM
                 fetch(`https://avwx.rest/api/taf/${icao}`, { headers: { 'Authorization': `Bearer ${TOKEN}` } }).then(r=>r.json()).then(renderTaf).catch(console.error);
                 fetch(`https://avwx.rest/api/notam/${icao}`, { headers: { 'Authorization': `Bearer ${TOKEN}` } }).then(r=>r.json()).then(d => {
                     document.getElementById('notamList').innerHTML = d.map(n => `<div style="margin-bottom:8px; border-left:3px solid var(--warn); padding-left:6px;">${n.raw}</div>`).join('');
                 });
 
-                // Dropdown
                 const sel = document.getElementById('rwySelect'); sel.innerHTML = '';
                 (stationData.runways || []).forEach(r => {
                     sel.add(new Option(`RWY ${r.ident1}`, r.ident1));
@@ -370,10 +382,8 @@
             document.getElementById('mVis').innerText = `${d.visibility?.value} sm`;
             const c = d.clouds?.[0]; document.getElementById('mCeil').innerText = c ? `${c.type} ${c.altitude.toString().padStart(3,'0')}` : "CLR";
             
-            // Format Altimeter
             const alt = d.altimeter?.value; 
             if(alt) {
-                // If native is hPa, show both. If native is inHg, show both.
                 if(currentMetar.altUnit === 'hPa') {
                     const inHg = (alt * 0.02953).toFixed(2);
                     document.getElementById('mAlt').innerText = `Q${alt} / A${inHg}`;
@@ -385,8 +395,13 @@
 
             const t = d.temperature?.value, dew = d.dewpoint?.value;
             if(t!=null) {
-                document.getElementById('mTempC').innerText = `${t}°C`;
-                document.getElementById('mTempF').innerText = `(${Math.round(t*1.8+32)}°F)`;
+                // FIXED: Dewpoint display was incorrect in prev version
+                const tStr = `${t}°C`;
+                const dewStr = dew != null ? `${dew}°C` : '--';
+                const fStr = `(${Math.round(t*1.8+32)}°F)`;
+                
+                document.getElementById('mTempC').innerText = `${tStr} / ${dewStr}`;
+                document.getElementById('mTempF').innerText = fStr;
                 document.getElementById('mSpread').innerText = `Spread: ${(t-dew).toFixed(1)}°C`;
             }
             const minAgo = Math.floor((new Date() - new Date(d.time.dt)) / 60000);
@@ -397,35 +412,29 @@
             document.getElementById('infoName').innerText = d.name;
             document.getElementById('infoLoc').innerText = `${d.city || ''}, ${d.country || ''} (${d.icao})`;
             
-            // --- FIXED CALCULATION LOGIC ---
-            const elev = d.elevation_ft; // Field Elevation
+            // 1. Ident & Location Grid
+            document.getElementById('infoCodes').innerText = `${d.icao} / ${d.iata || '--'}`;
+            document.getElementById('infoElev').innerText = `${d.elevation_ft} ft`;
+            document.getElementById('infoCoords').innerText = `${d.latitude.toFixed(4)}, ${d.longitude.toFixed(4)}`;
+
+            // 2. Calculations
+            const elev = d.elevation_ft; 
             const temp = currentMetar.temp;
             
-            // 1. Normalize Altimeter to hPa (Standard: 1013.25)
             let currentHpa = currentMetar.alt;
             if(currentMetar.altUnit === 'inHg') {
                 currentHpa = currentMetar.alt * 33.8639;
             }
 
-            // 2. Pressure Altitude (PA)
-            // Formula: Elev + (1013.25 - QNH) * 30
-            // Note: 30ft per hPa is the standard lapse rate for pressure.
             const pa = Math.round(elev + (1013.25 - currentHpa) * 30);
-            
-            // 3. ISA Temperature at PA
-            // Standard at Sea Level: 15°C. Lapse rate: 2°C per 1000ft.
             const isaTemp = 15 - (2 * pa / 1000);
             const isaDev = Math.round(temp - isaTemp);
-            
-            // 4. Density Altitude (DA)
-            // Formula: PA + 120 * (OAT - ISA_Temp)
             const da = Math.round(pa + 120 * (temp - isaTemp));
 
             document.getElementById('calcPA').innerText = `${pa} ft`;
             document.getElementById('calcDA').innerText = `${da} ft`;
             document.getElementById('calcISA').innerText = `${isaDev >= 0 ? '+' : ''}${isaDev}°C`;
 
-            // Solar & Offset
             fetch(`https://api.sunrise-sunset.org/json?lat=${d.latitude}&lng=${d.longitude}&formatted=0`)
                 .then(r=>r.json()).then(s => {
                     const t = (iso) => new Date(iso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false});
@@ -492,7 +501,6 @@
             }
         }
 
-        // TAF & Tools (Same as before)
         function renderTaf(d) {
             document.getElementById('rawTaf').innerText = d.raw;
             tafDataCache = d.forecast; const bar = document.getElementById('tafBar'); const axis = document.getElementById('tafAxis'); bar.innerHTML = ''; axis.innerHTML = '';
