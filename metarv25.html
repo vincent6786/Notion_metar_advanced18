@@ -11,7 +11,6 @@
             --vfr: #2ecc71; --mvfr: #3498db; --ifr: #e74c3c; --lifr: #9b59b6;
             --warn: #f39c12; --good: #2ecc71; --bad: #e74c3c;
         }
-        /* Force Dark Mode aesthetic for "Pro App" feel */
         * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif;
@@ -55,7 +54,7 @@
             border-radius: 8px; padding: 12px; margin-bottom: 12px; align-items: center;
             border: 1px solid var(--border);
         }
-        .visual-canvas { width: 80px; height: 80px; } /* Bigger for detail */
+        .visual-canvas { width: 80px; height: 80px; } 
         .calc-panel { flex-grow: 1; display: flex; flex-direction: column; gap: 6px; }
         
         #rwyInput {
@@ -99,6 +98,10 @@
             transition: background 0.2s;
         }
         .action-btn:hover { background: #333; }
+        .freq-list { display: flex; flex-direction: column; gap: 6px; }
+        .freq-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--card-bg); border-radius: 6px; border: 1px solid var(--border); }
+        .freq-type { font-size: 12px; font-weight: 700; color: var(--sub-text); }
+        .freq-num { font-size: 14px; font-weight: 600; color: var(--accent); font-family: 'SF Mono', monospace; }
 
         /* COMMON */
         .hidden { display: none; }
@@ -176,7 +179,7 @@
 
         <div class="bar-container">
             <div class="bar-label"><span>TEMP / DEW SPREAD</span> <span id="spreadVal">--°C</span></div>
-            <div class="spread-bar-bg"><div id="spreadBar" class="spread-bar-fill" style="width:100%; background-color:var(--good);"></div></div>
+            <div class="bar-track"><div id="spreadBar" class="bar-fill" style="width:100%; background-color:var(--good);"></div></div>
         </div>
 
         <div class="raw-box" id="rawMetar">Loading...</div>
@@ -189,7 +192,7 @@
         <div id="tafTimeline" class="taf-timeline"></div>
 
         <div class="section-header">NOTAMs</div>
-        <div class="notam-list" id="notamList"></div>
+        <div class="taf-timeline" id="notamList"></div>
     </div>
 
     <div id="atcView" class="hidden">
@@ -218,7 +221,7 @@
             <div class="data-item" style="text-align:center;"><div class="label">Sunset</div><div class="value" id="ssTime" style="justify-content:center;">--</div></div>
             <div class="data-item" style="text-align:center;"><div class="label">Twilight</div><div class="value" id="ctTime" style="justify-content:center;">--</div></div>
         </div>
-        <div id="sunCountdown" style="text-align:center; font-size:11px; color:var(--accent); font-weight:700;"></div>
+        <div id="sunCountdown" style="text-align:center; font-size:11px; color:var(--accent); font-weight:700; margin-top:8px;"></div>
     </div>
 
     <div id="toolsView" class="hidden">
@@ -249,9 +252,9 @@
             "RCTP": { name: "Taiwan Taoyuan", elev: 108, lat: 25.07, lon: 121.23, freqs: { ATIS: "127.6", TWR: "118.7", GND: "121.7" }, runways: [{ id: "05L", len: "12008" }, { id: "23R", len: "12008" }, { id: "05R", len: "12467" }, { id: "23L", len: "12467" }] },
             "RCSS": { name: "Taipei Songshan", elev: 18, lat: 25.06, lon: 121.55, freqs: { ATIS: "127.4", TWR: "118.1", GND: "121.9" }, runways: [{ id: "10", len: "8547" }, { id: "28", len: "8547" }] },
             "KMCC": { name: "Sacramento Mather", elev: 98, lat: 38.55, lon: -121.29, freqs: { ATIS: "124.25", TWR: "120.65", GND: "121.85" }, runways: [{ id: "04L", len: "6081" }, { id: "22R", len: "6081" }, { id: "04R", len: "11301" }, { id: "22L", len: "11301" }] },
-            "VHHH": { name: "Hong Kong Int'l", elev: 28, lat: 22.30, lon: 113.91, freqs: { ATIS: "128.2" }, runways: [{ id: "07L", len: "12459" }, { id: "25R", len: "12459" }]},
-            "RCKH": { name: "Kaohsiung Int'l", elev: 31, lat: 22.57, lon: 120.35, freqs: { ATIS: "127.8" }, runways: [{ id: "09", len: "10335" }, { id: "27", len: "10335" }]},
-            "RCMQ": { name: "Taichung Int'l", elev: 665, lat: 24.25, lon: 120.62, freqs: { TWR: "118.6" }, runways: [{ id: "18", len: "12005" }, { id: "36", len: "12005" }]}
+            "VHHH": { name: "Hong Kong Int'l", elev: 28, lat: 22.30, lon: 113.91, freqs: { ATIS: "128.2", TWR: "118.7", GND: "121.6" }, runways: [{ id: "07L", len: "12459" }, { id: "25R", len: "12459" }]},
+            "RCKH": { name: "Kaohsiung Int'l", elev: 31, lat: 22.57, lon: 120.35, freqs: { ATIS: "127.8", TWR: "118.7", GND: "121.9" }, runways: [{ id: "09", len: "10335" }, { id: "27", len: "10335" }]},
+            "RCMQ": { name: "Taichung Int'l", elev: 665, lat: 24.25, lon: 120.62, freqs: { TWR: "118.6", GND: "121.8" }, runways: [{ id: "18", len: "12005" }, { id: "36", len: "12005" }]}
         };
 
         let currentIcao='RCTP', windData={dir:0,speed:0}, currentRunways=[], sunsetTime=null;
@@ -265,9 +268,11 @@
             // Link Logic
             document.getElementById('liveAtcBtn').href = `https://www.liveatc.net/search/?designator=${currentIcao}`;
             const twBtn = document.getElementById('twatcBtn');
+            
+            // UPDATE: Use Direct Stream Link
             if(currentIcao === 'RCTP') {
                 twBtn.classList.remove('hidden');
-                twBtn.href = "https://beta.twatc.net/listen.php?id=RCTP_ATIS";
+                twBtn.href = "https://stream.twatc.net/RCTP_ATIS"; 
             } else { twBtn.classList.add('hidden'); }
 
             if(AIRPORT_DB[currentIcao]) renderInfo(AIRPORT_DB[currentIcao]);
@@ -285,17 +290,14 @@
             const timeline = document.getElementById('tafTimeline');
             timeline.innerHTML = '';
             if(!raw) return;
-            // Split by main keywords
             const parts = raw.split(/(?=FM|BECMG|TEMPO|PROB)/g);
             parts.forEach(part => {
                 const type = part.match(/^(FM|BECMG|TEMPO|PROB)/)?.[0] || 'INIT';
                 const div = document.createElement('div');
                 div.className = 'taf-block';
-                // Color coding
                 let typeClass = 'type-fm';
                 if(type==='BECMG') typeClass='type-becmg';
                 if(type==='TEMPO') typeClass='type-tempo';
-                
                 div.innerHTML = `<span class="taf-type ${typeClass}">${type}</span> ${part.replace(type, '').trim()}`;
                 timeline.appendChild(div);
             });
@@ -316,17 +318,14 @@
             document.getElementById('infoElev').innerText = `${db.elev} ft`;
             currentRunways = db.runways || [];
             
-            // Freqs
             const fl = document.getElementById('fullFreqList'); fl.innerHTML = '';
             if(db.freqs) {
                 for(const [t,f] of Object.entries(db.freqs)) fl.innerHTML+=`<div class="freq-row"><span class="freq-type">${t}</span><span class="freq-num">${f}</span></div>`;
             } else { fl.innerHTML='<div style="text-align:center;color:#666">No Freq Data</div>'; }
 
-            // Dynamic List
             const dl = document.getElementById('dynamicRunways'); dl.innerHTML='';
             currentRunways.forEach(r => { const o=document.createElement('option'); o.value=r.id; dl.appendChild(o); });
 
-            // Sun
             if(db.lat) {
                 fetch(`https://api.sunrise-sunset.org/json?lat=${db.lat}&lng=${db.lon}&formatted=0`).then(r=>r.json()).then(d=>{
                     const p = (t) => new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});
@@ -358,22 +357,21 @@
             windData = { dir: d.wind_direction?.value||0, speed: d.wind_speed?.value||0 };
             document.getElementById('windText').innerText = `${windData.dir}° / ${windData.speed}kt`;
             const arrow = document.getElementById('windArrowIcon');
-            arrow.style.transform = `rotate(${windData.dir}deg)`;
+            // Wind is FROM. Arrow points WITH. (Dir + 180).
+            arrow.style.transform = `rotate(${windData.dir + 180}deg)`;
 
             document.getElementById('vis').innerText = d.visibility?.value + 'sm';
             document.getElementById('clouds').innerText = d.clouds?.[0]?.repr || 'CLR';
             document.getElementById('altimeter').innerText = d.altimeter?.value ? `A${d.altimeter.value}` : '--';
             document.getElementById('metarAge').innerText = Math.floor((new Date()-new Date(d.time.dt))/60000) + 'm ago';
 
-            // Density Alt
             const t = d.temperature?.value;
             const alt = d.altimeter?.value; 
             if(t!=null && alt!=null) {
-                const da = Math.round((108 + (29.92-alt)*1000) + (120*(t-15))); // Approx
+                const da = Math.round((108 + (29.92-alt)*1000) + (120*(t-15))); 
                 document.getElementById('densityAlt').innerText = da + ' ft';
             }
 
-            // Spread
             const dew = d.dewpoint?.value;
             if(t!=null && dew!=null) {
                 const spread = t-dew;
@@ -420,7 +418,7 @@
                 const xw = Math.round(Math.abs(Math.sin(rad)*windData.speed));
                 
                 const arrowH = hw>=0 ? '⬆' : '⬇';
-                const arrowX = '⬅'; // Simplified visual
+                const arrowX = '⬅'; 
                 const col = hw<0 ? 'val-bad' : 'val-good';
 
                 tbl.innerHTML += `<tr><td>${r.id}</td><td>${r.len}'</td><td class="${col}">${arrowH} ${Math.abs(hw)}</td><td>${arrowX} ${xw}</td></tr>`;
@@ -433,26 +431,21 @@
             const cx=40, cy=40, r=35;
             ctx.clearRect(0,0,80,80);
             
-            // Dial
             ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2*Math.PI);
             ctx.strokeStyle='#444'; ctx.lineWidth=2; ctx.stroke();
-            // Ticks
             for(let i=0;i<12;i++) {
                 ctx.save(); ctx.translate(cx,cy); ctx.rotate(i*30*Math.PI/180);
                 ctx.fillStyle='#666'; ctx.fillRect(-1, -r, 2, 4);
                 ctx.restore();
             }
-            // N symbol
             ctx.fillStyle='#fff'; ctx.font='10px Arial'; ctx.textAlign='center'; ctx.fillText('N', cx, cy-24);
 
-            // Runway (Light Grey Strip)
             if(rwyNum) {
                 ctx.save(); ctx.translate(cx,cy); ctx.rotate(rwyNum*10 * Math.PI/180);
                 ctx.fillStyle='#888'; ctx.fillRect(-4,-28,8,56);
                 ctx.restore();
             }
 
-            // Wind (Blue Arrow)
             if(windData.speed>0) {
                 ctx.save(); ctx.translate(cx,cy); ctx.rotate((windData.dir-180)*Math.PI/180);
                 ctx.beginPath(); ctx.moveTo(0,30); ctx.lineTo(0,10);
@@ -482,7 +475,6 @@
             ['metar','taf','atc','info','tools','memo'].forEach(v => document.getElementById(v+'View').classList.add('hidden'));
             document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
             document.getElementById(t+'View').classList.remove('hidden');
-            // Simplified active class toggle logic for brevity
             const els = document.querySelectorAll('.tab');
             if(t==='metar') els[0].classList.add('active');
             if(t==='taf') els[1].classList.add('active');
