@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Pilot EFB V37</title>
+    <title>Notion Pilot EFB V38</title>
     <style>
         :root {
             --bg: #000000; --card-bg: #1c1c1e; --text: #ffffff; --sub-text: #8e8e93;
@@ -50,8 +50,8 @@
         .cat-lifr { background-color: var(--lifr) !important; color: #fff !important; }
 
         /* TABS */
-        .tabs { display: flex; border-bottom: 1px solid var(--border); gap: 20px; padding: 0 4px; }
-        .tab { padding: 10px 0; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--sub-text); border-bottom: 2px solid transparent; text-transform: uppercase; }
+        .tabs { display: flex; border-bottom: 1px solid var(--border); gap: 20px; padding: 0 4px; overflow-x: auto; }
+        .tab { padding: 10px 0; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--sub-text); border-bottom: 2px solid transparent; text-transform: uppercase; white-space: nowrap; }
         .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
         /* SECTIONS */
@@ -59,37 +59,36 @@
         .view-section.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* INFO GRID */
+        /* INFO & ATC STYLES */
         .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
         .info-card { background: var(--card-bg); padding: 10px; border-radius: 8px; }
         .ic-lbl { font-size: 11px; color: var(--sub-text); text-transform: uppercase; }
         .ic-val { font-size: 15px; font-weight: 600; color: #fff; margin-top: 2px; }
         .ic-val-sm { font-size: 13px; font-weight: 500; color: #fff; margin-top: 2px; font-family: 'SF Mono', monospace; }
+        .section-title { font-weight:700; color:var(--sub-text); margin: 20px 0 8px 0; font-size:12px; }
+
+        /* ATC Buttons */
+        .atc-btn {
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--card-bg); padding: 14px 16px; border-radius: 10px;
+            text-decoration: none; color: #fff; font-weight: 600; font-size: 15px;
+            border: 1px solid var(--border); transition: background 0.2s;
+            margin-bottom: 10px;
+        }
+        .atc-btn:hover { background: #2c2c2e; border-color: var(--accent); }
+        .atc-icon { margin-right: 10px; font-size: 18px; }
 
         /* RUNWAY VISUALIZER */
         .rwy-section-head { display: flex; justify-content: space-between; align-items: center; margin: 20px 0 10px 0; }
-        .unit-toggle { 
-            background: var(--card-bg); border: 1px solid var(--border); 
-            border-radius: 12px; overflow: hidden; display: flex; cursor: pointer;
-        }
+        .unit-toggle { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; cursor: pointer; }
         .u-opt { padding: 4px 10px; font-size: 12px; font-weight: 700; color: var(--sub-text); }
         .u-opt.active { background: #fff; color: #000; }
-
         .rwy-complex { margin-bottom: 16px; }
         .rc-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 4px; padding: 0 4px; }
         .rc-idents { font-size: 16px; font-weight: 800; font-family: 'SF Mono', monospace; }
         .rc-dims { font-size: 13px; color: #fff; font-weight: 600; }
-
-        .rc-strip { 
-            height: 44px; background: var(--strip-bg); border-radius: 8px; 
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 0 6px; overflow: hidden; position: relative;
-        }
-        .rc-id-v { 
-            font-size: 12px; font-weight: 700; color: #fff; 
-            writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg);
-            padding: 0 4px;
-        }
+        .rc-strip { height: 44px; background: var(--strip-bg); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; padding: 0 6px; overflow: hidden; position: relative; }
+        .rc-id-v { font-size: 12px; font-weight: 700; color: #fff; writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); padding: 0 4px; }
         .rc-data { flex-grow: 1; display: flex; align-items: center; justify-content: center; gap: 12px; }
         .wind-comp { display: flex; align-items: center; gap: 2px; font-size: 14px; font-weight: 600; color: #fff; }
         .wc-arrow { font-size: 14px; }
@@ -130,8 +129,6 @@
         .info-val { font-weight: 500; text-align: right; }
         .raw-text { font-family: 'SF Mono', monospace; font-size: 11px; color: #d0d0d0; margin-top: 6px; line-height: 1.4; white-space: pre-wrap; background: rgba(255,255,255,0.05); padding: 6px; border-radius: 6px; }
         .hidden { display: none !important; }
-        
-        .section-title { font-weight:700; color:var(--sub-text); margin: 20px 0 8px 0; font-size:12px; }
     </style>
 </head>
 <body>
@@ -156,6 +153,7 @@
         <div class="tab active" onclick="setTab('metar')">METAR</div>
         <div class="tab" onclick="setTab('taf')">TAF</div>
         <div class="tab" onclick="setTab('info')">INFO</div>
+        <div class="tab" onclick="setTab('atc')">ATC</div>
         <div class="tab" onclick="setTab('tools')">TOOLS</div>
     </div>
 
@@ -210,51 +208,20 @@
     <div id="tab-info" class="view-section">
         <div style="font-size:20px; font-weight:700; margin-bottom:4px;" id="infoName">Unknown</div>
         <div style="font-size:12px; color:var(--sub-text); margin-bottom:12px;" id="infoLoc">--</div>
-
         <div class="info-grid">
-            <div class="info-card">
-                <div class="ic-lbl">ICAO / IATA</div>
-                <div class="ic-val" id="infoCodes">--</div>
-            </div>
-            <div class="info-card">
-                <div class="ic-lbl">Elevation</div>
-                <div class="ic-val" id="infoElev">--</div>
-            </div>
-            <div class="info-card" style="grid-column: span 2;">
-                <div class="ic-lbl">Coordinates</div>
-                <div class="ic-val-sm" id="infoCoords">--</div>
-            </div>
+            <div class="info-card"><div class="ic-lbl">ICAO / IATA</div><div class="ic-val" id="infoCodes">--</div></div>
+            <div class="info-card"><div class="ic-lbl">Elevation</div><div class="ic-val" id="infoElev">--</div></div>
+            <div class="info-card" style="grid-column: span 2;"><div class="ic-lbl">Coordinates</div><div class="ic-val-sm" id="infoCoords">--</div></div>
         </div>
-
         <div class="section-title">ATMOSPHERE & TIME</div>
-        
         <div class="info-grid">
-            <div class="info-card">
-                <div class="ic-lbl">Pressure Alt</div>
-                <div class="ic-val" id="calcPA">--</div>
-            </div>
-            <div class="info-card">
-                <div class="ic-lbl">Density Alt</div>
-                <div class="ic-val" id="calcDA">--</div>
-            </div>
-            <div class="info-card">
-                <div class="ic-lbl">ISA Dev</div>
-                <div class="ic-val" id="calcISA">--</div>
-            </div>
-            <div class="info-card">
-                <div class="ic-lbl">Local Offset (Est)</div>
-                <div class="ic-val" id="calcOffset">--</div>
-            </div>
-            <div class="info-card">
-                <div class="ic-lbl">Sunrise/Set</div>
-                <div class="ic-val" style="font-size:13px;" id="infoSun">--</div>
-            </div>
-            <div class="info-card">
-                <div class="ic-lbl">Mag Variation</div>
-                <div class="ic-val" id="infoMag">--</div>
-            </div>
+            <div class="info-card"><div class="ic-lbl">Pressure Alt</div><div class="ic-val" id="calcPA">--</div></div>
+            <div class="info-card"><div class="ic-lbl">Density Alt</div><div class="ic-val" id="calcDA">--</div></div>
+            <div class="info-card"><div class="ic-lbl">ISA Dev</div><div class="ic-val" id="calcISA">--</div></div>
+            <div class="info-card"><div class="ic-lbl">Local Offset (Est)</div><div class="ic-val" id="calcOffset">--</div></div>
+            <div class="info-card"><div class="ic-lbl">Sunrise/Set</div><div class="ic-val" style="font-size:13px;" id="infoSun">--</div></div>
+            <div class="info-card"><div class="ic-lbl">Mag Variation</div><div class="ic-val" id="infoMag">--</div></div>
         </div>
-
         <div class="rwy-section-head">
             <span style="font-weight:700; color:var(--sub-text);">RUNWAYS</span>
             <div class="unit-toggle" onclick="toggleUnits()">
@@ -262,10 +229,35 @@
                 <div id="optFt" class="u-opt">ft</div>
             </div>
         </div>
-
         <div id="runwayListComplex"></div>
     </div>
     
+    <div id="tab-atc" class="view-section">
+        <div class="info-card" style="margin-bottom: 20px;">
+            <div class="ic-lbl" style="margin-bottom:8px;">RCTP ATIS (Live Stream)</div>
+            <audio controls style="width: 100%; height: 32px; filter: invert(0.9);">
+                <source src="https://stream.twatc.net/RCTP_ATIS" type="audio/mpeg">
+                Your browser does not support audio.
+            </audio>
+        </div>
+
+        <div class="section-title">EXTERNAL RESOURCES</div>
+        <div style="display: flex; flex-direction: column;">
+            <a href="https://beta.twatc.net/" target="_blank" class="atc-btn">
+                <span>🇹🇼 Taiwan Virtual ATC</span>
+                <span style="color:var(--sub-text)">↗</span>
+            </a>
+            <a href="https://www.liveatc.net/" target="_blank" class="atc-btn">
+                <span>📡 LiveATC.net</span>
+                <span style="color:var(--sub-text)">↗</span>
+            </a>
+            <a href="https://aviationlisteners.aero" target="_blank" class="atc-btn">
+                <span>🎧 AviationListeners.aero</span>
+                <span style="color:var(--sub-text)">↗</span>
+            </a>
+        </div>
+    </div>
+
     <div id="tab-tools" class="view-section">
         <div style="margin-bottom:10px;">
             <div class="info-label">METAR Decoder</div>
@@ -283,7 +275,6 @@
     <script>
         const TOKEN = 'dMzS0-M9_ku1bYySTtsq4pZE8fEEiTUJaNtvqSDEgUs';
         
-        // State
         let currentWind = { dir:0, spd:0 }; 
         let currentMetar = { temp: 15, alt: 1013, altUnit: 'hPa' };
         let stationData = null;
@@ -324,12 +315,10 @@
             updateHeaderCat('Loading', '');
 
             try {
-                // 1. Station
                 const resSt = await fetch(`https://avwx.rest/api/station/${icao}`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
                 if(!resSt.ok) throw new Error();
                 stationData = await resSt.json();
                 
-                // 2. METAR
                 const resMe = await fetch(`https://avwx.rest/api/metar/${icao}`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
                 const metar = await resMe.json();
                 
@@ -369,8 +358,7 @@
             badge.innerText = status; badge.className = 'badge badge-cat ' + colorClass;
         }
 
-        // --- RENDERERS ---
-
+        // RENDER METAR
         function renderMetar(d) {
             document.getElementById('rawMetar').innerText = d.raw;
             const rules = d.flight_rules; 
@@ -395,11 +383,9 @@
 
             const t = d.temperature?.value, dew = d.dewpoint?.value;
             if(t!=null) {
-                // FIXED: Dewpoint display was incorrect in prev version
                 const tStr = `${t}°C`;
                 const dewStr = dew != null ? `${dew}°C` : '--';
                 const fStr = `(${Math.round(t*1.8+32)}°F)`;
-                
                 document.getElementById('mTempC').innerText = `${tStr} / ${dewStr}`;
                 document.getElementById('mTempF').innerText = fStr;
                 document.getElementById('mSpread').innerText = `Spread: ${(t-dew).toFixed(1)}°C`;
@@ -408,23 +394,18 @@
             document.getElementById('mAge').innerText = `${minAgo}m ago`;
         }
 
+        // RENDER INFO
         function renderInfo(d) {
             document.getElementById('infoName').innerText = d.name;
             document.getElementById('infoLoc').innerText = `${d.city || ''}, ${d.country || ''} (${d.icao})`;
-            
-            // 1. Ident & Location Grid
             document.getElementById('infoCodes').innerText = `${d.icao} / ${d.iata || '--'}`;
             document.getElementById('infoElev').innerText = `${d.elevation_ft} ft`;
             document.getElementById('infoCoords').innerText = `${d.latitude.toFixed(4)}, ${d.longitude.toFixed(4)}`;
 
-            // 2. Calculations
             const elev = d.elevation_ft; 
             const temp = currentMetar.temp;
-            
             let currentHpa = currentMetar.alt;
-            if(currentMetar.altUnit === 'inHg') {
-                currentHpa = currentMetar.alt * 33.8639;
-            }
+            if(currentMetar.altUnit === 'inHg') currentHpa = currentMetar.alt * 33.8639;
 
             const pa = Math.round(elev + (1013.25 - currentHpa) * 30);
             const isaTemp = 15 - (2 * pa / 1000);
@@ -448,6 +429,7 @@
             renderRunwaysComplex();
         }
 
+        // RENDER RUNWAYS
         function renderRunwaysComplex() {
             const container = document.getElementById('runwayListComplex'); container.innerHTML = '';
             const d = stationData; if(!d || !d.runways) return;
