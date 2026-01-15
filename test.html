@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Pilot EFB V49 (Notes Tab)</title>
+    <title>Notion Pilot EFB V50 (Smart API)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -147,23 +147,7 @@
         .conv-inp { background: #2c2c2e; border: 1px solid var(--border); color: #fff; padding: 6px; border-radius: 6px; width: 100%; }
         .conv-lbl { font-size: 10px; color: var(--sub-text); text-transform: uppercase; margin-bottom: 2px; }
 
-        /* WORLD CLOCK STYLES */
-        .world-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
-        .clock-card { background: var(--card-bg); border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2c2c2e; }
-        .clock-left { display: flex; flex-direction: column; }
-        .clock-rel { font-size: 11px; color: var(--sub-text); margin-bottom: 2px; text-transform: uppercase; }
-        .clock-city { font-weight: 700; font-size: 18px; color: #fff; }
-        .clock-codes { font-size: 12px; color: var(--accent); font-weight: 600; margin-left: 6px; font-family: 'SF Mono', monospace; }
-        .clock-time { font-family: 'SF Mono', monospace; font-size: 28px; font-weight: 400; color: #fff; letter-spacing: 0.5px; }
-        .clock-utc { color: var(--success); font-weight: 600;}
-        .del-btn { color: var(--danger); font-size: 16px; margin-left: 10px; cursor: pointer; opacity: 0.4; padding: 4px; }
-        .del-btn:hover { opacity: 1; }
-        .add-city-box { display: flex; gap: 8px; margin-bottom: 12px; background: #2c2c2e; padding: 8px; border-radius: 8px; }
-        .ac-input { flex: 1; background: #1c1c1e; border: 1px solid var(--border); color: #fff; padding: 8px; border-radius: 6px; font-size:13px; }
-        .ac-btn { background: var(--accent); color: #fff; border: none; padding: 0 16px; border-radius: 6px; font-weight: 700; cursor: pointer; }
-        .ac-btn:disabled { opacity: 0.5; cursor: default; }
-
-        /* NEW NOTES TAB STYLES */
+        /* NOTES TAB STYLES */
         #miniMap { height: 250px; width: 100%; border-radius: 8px; margin-bottom: 12px; z-index: 1; border: 1px solid var(--border); }
         .scratchpad-container { background: #fff; border-radius: 8px; overflow: hidden; border: 2px solid var(--border); position: relative; }
         canvas#scratchpad { display: block; cursor: crosshair; touch-action: none; }
@@ -177,9 +161,41 @@
             margin-top: 10px;
         }
         .text-pad:focus { border-color: var(--accent); }
+
+        /* API ERROR MODAL */
+        #apiModal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+        .api-card {
+            background: #1c1c1e; border: 1px solid var(--danger); border-radius: 12px;
+            padding: 24px; max-width: 90%; width: 400px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            text-align: center;
+        }
     </style>
 </head>
 <body>
+
+    <div id="apiModal" class="hidden">
+        <div class="api-card">
+            <div style="font-size:40px; margin-bottom:10px;">🔑</div>
+            <h2 style="margin:0; color:var(--text);">API Token Expired</h2>
+            <p style="color:var(--sub-text); font-size:13px; margin: 10px 0 20px 0;">
+                The shared data token has reached its daily limit. To continue using the app, get your own free token.
+            </p>
+            <div style="text-align:left; background:#2c2c2e; padding:12px; border-radius:8px; margin-bottom:20px;">
+                <div style="font-weight:700; font-size:12px; color:var(--accent); margin-bottom:4px;">STEP 1</div>
+                <div style="font-size:13px;">Create free account at <a href="https://account.avwx.rest" target="_blank" style="color:#fff;">account.avwx.rest</a></div>
+                <div style="font-weight:700; font-size:12px; color:var(--accent); margin-top:12px; margin-bottom:4px;">STEP 2</div>
+                <div style="font-size:13px;">Copy your <b>API Token</b> and paste below:</div>
+            </div>
+            <input type="text" id="userKeyInput" class="conv-inp" placeholder="Paste Token Here..." style="padding:10px; font-size:14px; margin-bottom:12px;">
+            <button class="tool-btn" style="background:var(--accent); border:none; padding:12px;" onclick="saveNewKey()">Save & Retry</button>
+        </div>
+    </div>
 
     <div class="top-bar">
         <div class="search-wrapper">
@@ -409,9 +425,9 @@
 
     <script>
         // --- GLOBALS ---
-        // !!! IMPORTANT: Get your free key at account.avwx.rest !!!
-        // If you get errors, replace this string with your new key.
-        const AVWX_KEY = 'm-z__noxcbAwV7Fdl8n9tvjvFPEgDguwKCl8Hp7M_o8';
+        // Fallback key if user hasn't provided one
+        const DEFAULT_KEY = 'dMzS0-M9_ku1bYySTtsq4pZE8fEEiTUJaNtvqSDEgUs';
+        let userApiKey = localStorage.getItem('efb_api_key') || DEFAULT_KEY;
         
         let currentWind = { dir:0, spd:0 }; 
         let currentMetar = { temp: 15, alt: 1013, altUnit: 'hPa' };
@@ -448,6 +464,18 @@
             loadData();
             setInterval(updateClock, 1000);
             updateATCPlayer();
+        }
+
+        // --- AUTH LOGIC (NEW) ---
+        function saveNewKey() {
+            const input = document.getElementById('userKeyInput');
+            const newKey = input.value.trim();
+            if(newKey) {
+                userApiKey = newKey;
+                localStorage.setItem('efb_api_key', newKey);
+                document.getElementById('apiModal').classList.add('hidden');
+                loadData(); // Retry immediately
+            }
         }
 
         // --- TABS & UI ---
@@ -490,12 +518,19 @@
             document.getElementById('linkSkyVector').href = `https://skyvector.com/airport/${icao}`;
             updateHeaderCat('Loading', '');
 
-            const headers = { 'Authorization': `Bearer ${AVWX_KEY}` };
+            const headers = { 'Authorization': `Bearer ${userApiKey}` };
             
             try {
                 // 1. Check Station First (Basic Validity)
                 const stationResp = await fetch(`https://avwx.rest/api/station/${icao}`, {headers});
-                if(stationResp.status === 401) throw new Error("API Key Invalid/Exceeded (401)");
+                
+                // NEW: Handle 401 Unauthorized specifically
+                if(stationResp.status === 401) {
+                    document.getElementById('apiModal').classList.remove('hidden');
+                    updateHeaderCat('Auth Err', 'cat-ifr');
+                    return; // Stop execution
+                }
+
                 if(!stationResp.ok) throw new Error(`Station Error (${stationResp.status})`);
                 const station = await stationResp.json();
 
@@ -542,7 +577,7 @@
             } catch(e) {
                 console.error(e);
                 updateHeaderCat('Err', 'cat-ifr');
-                alert(`Error loading data: ${e.message}.\n\nIf 401: Get a free key at account.avwx.rest and update the code.`);
+                alert(`Error loading data: ${e.message}`);
             }
         }
 
