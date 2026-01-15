@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Pilot EFB V48 (Map + Pad)</title>
+    <title>Notion Pilot EFB V49 (Notes Tab)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -163,10 +163,20 @@
         .ac-btn { background: var(--accent); color: #fff; border: none; padding: 0 16px; border-radius: 6px; font-weight: 700; cursor: pointer; }
         .ac-btn:disabled { opacity: 0.5; cursor: default; }
 
-        /* NEW MAP & SCRATCHPAD STYLES */
-        #miniMap { height: 200px; width: 100%; border-radius: 8px; margin-bottom: 12px; z-index: 1; border: 1px solid var(--border); }
-        .scratchpad-container { background: #fff; border-radius: 8px; overflow: hidden; margin-top:10px; border: 2px solid var(--border); position: relative; }
+        /* NEW NOTES TAB STYLES */
+        #miniMap { height: 250px; width: 100%; border-radius: 8px; margin-bottom: 12px; z-index: 1; border: 1px solid var(--border); }
+        .scratchpad-container { background: #fff; border-radius: 8px; overflow: hidden; border: 2px solid var(--border); position: relative; }
         canvas#scratchpad { display: block; cursor: crosshair; touch-action: none; }
+        
+        .text-pad {
+            width: 100%; height: 150px; 
+            background: #2c2c2e; color: #fff; 
+            border: 1px solid var(--border); border-radius: 8px; 
+            padding: 10px; font-family: 'SF Mono', monospace; 
+            font-size: 14px; resize: vertical; outline: none;
+            margin-top: 10px;
+        }
+        .text-pad:focus { border-color: var(--accent); }
     </style>
 </head>
 <body>
@@ -190,6 +200,7 @@
         <div class="tab" onclick="setTab('info')">INFO</div>
         <div class="tab" onclick="setTab('atc')">ATC</div>
         <div class="tab" onclick="setTab('world')">WORLD</div>
+        <div class="tab" onclick="setTab('notes')">NOTES</div>
         <div class="tab" onclick="setTab('tools')">TOOLS</div>
     </div>
 
@@ -245,8 +256,6 @@
         <div style="font-size:20px; font-weight:700; margin-bottom:4px;" id="infoName">Unknown</div>
         <div style="font-size:12px; color:var(--sub-text); margin-bottom:12px;" id="infoLoc">--</div>
         
-        <div id="miniMap"></div>
-
         <div class="info-grid">
             <div class="info-card"><div class="ic-lbl">ICAO / IATA</div><div class="ic-val" id="infoCodes">--</div></div>
             <div class="info-card"><div class="ic-lbl">Elevation</div><div class="ic-val" id="infoElev">--</div></div>
@@ -317,19 +326,26 @@
         </div>
         <div class="world-grid" id="worldContainer"></div>
     </div>
-
-    <div id="tab-tools" class="view-section">
+    
+    <div id="tab-notes" class="view-section">
+        <div class="section-title" style="margin-top:0;">Visual Reference</div>
+        <div id="miniMap"></div>
         
-        <div class="section-title" style="margin-top:0;">CRAFT Clearance Pad</div>
+        <div class="section-title">Scratchpad (Draw)</div>
         <div class="scratchpad-container">
             <canvas id="scratchpad" width="350" height="200"></canvas>
         </div>
-        <div style="display:flex; gap:8px; margin-top:8px; margin-bottom:20px;">
+        <div style="display:flex; gap:8px; margin-top:8px;">
             <button class="tool-btn" style="background:var(--danger);" onclick="clearPad()">Clear Pad</button>
             <button class="tool-btn" onclick="togglePenColor()">Color: Black</button>
         </div>
 
-        <div class="section-title">Personal Minimums (Go/No-Go)</div>
+        <div class="section-title">Text Notes (Type)</div>
+        <textarea id="textNotes" class="text-pad" placeholder="Type notes here (e.g. Flight Plan, Squawks, ATIS info)..." oninput="saveTextNotes()"></textarea>
+    </div>
+
+    <div id="tab-tools" class="view-section">
+        <div class="section-title" style="margin-top:0;">Personal Minimums (Go/No-Go)</div>
         <div class="info-card" style="border-left: 4px solid #555;" id="minsCard">
             <div class="conv-row">
                 <div style="flex:1">
@@ -393,6 +409,8 @@
 
     <script>
         // --- GLOBALS ---
+        // !!! IMPORTANT: Get your free key at account.avwx.rest !!!
+        // If you get errors, replace this string with your new key.
         const AVWX_KEY = 'dMzS0-M9_ku1bYySTtsq4pZE8fEEiTUJaNtvqSDEgUs';
         
         let currentWind = { dir:0, spd:0 }; 
@@ -426,6 +444,7 @@
         function initApp() {
             initWorldClock();
             initScratchpad();
+            initTextNotes();
             loadData();
             setInterval(updateClock, 1000);
             updateATCPlayer();
@@ -439,7 +458,10 @@
             event.target.classList.add('active');
             if(name === 'info' && stationData) {
                 renderRunwaysComplex();
-                if(mapInstance) mapInstance.invalidateSize(); // Fix grey map tiles
+            }
+            if(name === 'notes' && mapInstance) {
+                // Must resize map when tab becomes visible
+                setTimeout(() => { mapInstance.invalidateSize(); }, 200);
             }
             if(name === 'world') updateClock(); 
         }
@@ -471,8 +493,14 @@
             const headers = { 'Authorization': `Bearer ${AVWX_KEY}` };
             
             try {
-                const [station, metar, taf, notams] = await Promise.all([
-                    fetch(`https://avwx.rest/api/station/${icao}`, {headers}).then(r=>{if(!r.ok)throw new Error('Station');return r.json()}),
+                // 1. Check Station First (Basic Validity)
+                const stationResp = await fetch(`https://avwx.rest/api/station/${icao}`, {headers});
+                if(stationResp.status === 401) throw new Error("API Key Invalid/Exceeded (401)");
+                if(!stationResp.ok) throw new Error(`Station Error (${stationResp.status})`);
+                const station = await stationResp.json();
+
+                // 2. Parallel Load Rest
+                const [metar, taf, notams] = await Promise.all([
                     fetch(`https://avwx.rest/api/metar/${icao}`, {headers}).then(r=>r.json()),
                     fetch(`https://avwx.rest/api/taf/${icao}`, {headers}).then(r=>r.json()).catch(e=>({raw:"TAF Error"})),
                     fetch(`https://avwx.rest/api/notam/${icao}`, {headers}).then(r=>r.json()).catch(e=>[])
@@ -514,7 +542,7 @@
             } catch(e) {
                 console.error(e);
                 updateHeaderCat('Err', 'cat-ifr');
-                alert("Error loading data. Check API Key or ICAO code.");
+                alert(`Error loading data: ${e.message}.\n\nIf 401: Get a free key at account.avwx.rest and update the code.`);
             }
         }
 
@@ -689,6 +717,15 @@
             penColor = penColor === '#000000' ? '#0a84ff' : '#000000';
             ctxPad.strokeStyle = penColor;
             event.target.innerText = penColor === '#000000' ? "Color: Black" : "Color: Blue";
+        }
+
+        // --- TEXT NOTES LOGIC ---
+        function initTextNotes() {
+            const stored = localStorage.getItem('efb_notes');
+            if(stored) document.getElementById('textNotes').value = stored;
+        }
+        function saveTextNotes() {
+            localStorage.setItem('efb_notes', document.getElementById('textNotes').value);
         }
 
         // --- ATC LOGIC ---
