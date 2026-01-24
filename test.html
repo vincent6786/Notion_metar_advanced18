@@ -542,12 +542,17 @@
         }
 
         // --- NEW FEATURE: SUGGEST NEARBY AIRPORTS ---
+        // --- UPDATED: SUGGEST NEARBY AIRPORTS (Fixed "Undefined" Bug) ---
         async function findNearbyStations(lat, lon) {
             const container = document.getElementById('rawMetar');
             
-            // Create box with Specific ID so we can delete it later
+            // Clear old list if exists
+            const oldSuggestions = document.getElementById('nearbySuggestions');
+            if(oldSuggestions) oldSuggestions.remove();
+
+            // Create box
             const suggestionBox = document.createElement('div');
-            suggestionBox.id = "nearbySuggestions"; // <--- ADDED ID
+            suggestionBox.id = "nearbySuggestions";
             suggestionBox.style.marginTop = "10px";
             suggestionBox.style.borderTop = "1px solid #333";
             suggestionBox.style.paddingTop = "8px";
@@ -557,7 +562,6 @@
 
             try {
                 const headers = { 'Authorization': `Bearer ${AVWX_KEY}` };
-                // Ask for 4 stations near the coordinates
                 const url = `https://avwx.rest/api/station/near/${lat},${lon}?n=4`; 
                 const res = await fetch(url, { headers });
                 const stations = await res.json();
@@ -565,9 +569,11 @@
                 const list = document.getElementById('nearList');
                 list.innerHTML = "";
                 
-                // Filter out the current station itself
-                const currentICAO = document.getElementById('icao').value.toUpperCase();
-                const others = stations.filter(s => s.icao !== currentICAO);
+                // Get current ICAO to filter it out
+                const inputVal = document.getElementById('icao').value.toUpperCase();
+
+                // FIX: API uses 'station' key for the code in this endpoint, not 'icao'
+                const others = stations.filter(s => s.station !== inputVal);
 
                 if(others.length === 0) {
                     list.innerHTML = "<span style='color:#555;'>No other stations found nearby.</span>";
@@ -575,17 +581,24 @@
                 }
 
                 others.forEach(s => {
-                    // Create a button for each nearby airport
                     const btn = document.createElement('button');
                     btn.className = "tool-btn";
                     btn.style.width = "auto";
                     btn.style.margin = "0";
                     btn.style.fontSize = "12px";
-                    btn.innerText = `✈ ${s.icao}`; 
-                    btn.title = s.name;
+                    
+                    // FIX: Use s.station here
+                    btn.innerText = `✈ ${s.station}`; 
+                    btn.title = s.name || "Nearby Station";
+                    
+                    // Add distance if available (converting nautical miles roughly)
+                    if(s.distance) {
+                        btn.innerText += ` (${Math.round(s.distance)}nm)`;
+                    }
+
                     btn.onclick = () => {
-                        document.getElementById('icao').value = s.icao;
-                        loadData(); // Reload the tool with this new airport
+                        document.getElementById('icao').value = s.station; // FIX: Use s.station
+                        loadData(); 
                     };
                     list.appendChild(btn);
                 });
