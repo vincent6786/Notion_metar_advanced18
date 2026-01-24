@@ -3,10 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Pilot EFB V50 (Smart API)</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
+    <title>Notion Pilot EFB V48 (Smart Update)</title>
     <style>
         :root {
             --bg: #000000; --card-bg: #1c1c1e; --text: #ffffff; --sub-text: #8e8e93;
@@ -44,6 +41,7 @@
             width: 40px; height: 100%; border-radius: 8px; cursor: pointer; 
             display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 18px;
         }
+        .icon-btn:hover { background: #2c2c2e; }
         .badge { height: 100%; display: flex; align-items: center; justify-content: center; padding: 0 12px; border-radius: 8px; font-weight: 700; font-size: 15px; min-width: 60px; }
         .badge-time { background: var(--card-bg); border: 1px solid var(--border); color: #fff; font-family: 'SF Mono', monospace; letter-spacing: -0.5px; }
         .badge-cat { background: var(--card-bg); color: var(--sub-text); }
@@ -147,55 +145,24 @@
         .conv-inp { background: #2c2c2e; border: 1px solid var(--border); color: #fff; padding: 6px; border-radius: 6px; width: 100%; }
         .conv-lbl { font-size: 10px; color: var(--sub-text); text-transform: uppercase; margin-bottom: 2px; }
 
-        /* NOTES TAB STYLES */
-        #miniMap { height: 250px; width: 100%; border-radius: 8px; margin-bottom: 12px; z-index: 1; border: 1px solid var(--border); }
-        .scratchpad-container { background: #fff; border-radius: 8px; overflow: hidden; border: 2px solid var(--border); position: relative; }
-        canvas#scratchpad { display: block; cursor: crosshair; touch-action: none; }
-        
-        .text-pad {
-            width: 100%; height: 150px; 
-            background: #2c2c2e; color: #fff; 
-            border: 1px solid var(--border); border-radius: 8px; 
-            padding: 10px; font-family: 'SF Mono', monospace; 
-            font-size: 14px; resize: vertical; outline: none;
-            margin-top: 10px;
-        }
-        .text-pad:focus { border-color: var(--accent); }
-
-        /* API ERROR MODAL */
-        #apiModal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); z-index: 9999;
-            display: flex; align-items: center; justify-content: center;
-            backdrop-filter: blur(5px);
-        }
-        .api-card {
-            background: #1c1c1e; border: 1px solid var(--danger); border-radius: 12px;
-            padding: 24px; max-width: 90%; width: 400px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            text-align: center;
-        }
+        /* WORLD CLOCK STYLES */
+        .world-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+        .clock-card { background: var(--card-bg); border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2c2c2e; }
+        .clock-left { display: flex; flex-direction: column; }
+        .clock-rel { font-size: 11px; color: var(--sub-text); margin-bottom: 2px; text-transform: uppercase; }
+        .clock-city { font-weight: 700; font-size: 18px; color: #fff; }
+        .clock-codes { font-size: 12px; color: var(--accent); font-weight: 600; margin-left: 6px; font-family: 'SF Mono', monospace; }
+        .clock-time { font-family: 'SF Mono', monospace; font-size: 28px; font-weight: 400; color: #fff; letter-spacing: 0.5px; }
+        .clock-utc { color: var(--success); font-weight: 600;}
+        .del-btn { color: var(--danger); font-size: 16px; margin-left: 10px; cursor: pointer; opacity: 0.4; padding: 4px; }
+        .del-btn:hover { opacity: 1; }
+        .add-city-box { display: flex; gap: 8px; margin-bottom: 12px; background: #2c2c2e; padding: 8px; border-radius: 8px; }
+        .ac-input { flex: 1; background: #1c1c1e; border: 1px solid var(--border); color: #fff; padding: 8px; border-radius: 6px; font-size:13px; }
+        .ac-btn { background: var(--accent); color: #fff; border: none; padding: 0 16px; border-radius: 6px; font-weight: 700; cursor: pointer; }
+        .ac-btn:disabled { opacity: 0.5; cursor: default; }
     </style>
 </head>
 <body>
-
-    <div id="apiModal" class="hidden">
-        <div class="api-card">
-            <div style="font-size:40px; margin-bottom:10px;">🔑</div>
-            <h2 style="margin:0; color:var(--text);">API Token Expired</h2>
-            <p style="color:var(--sub-text); font-size:13px; margin: 10px 0 20px 0;">
-                The shared data token has reached its daily limit. To continue using the app, get your own free token.
-            </p>
-            <div style="text-align:left; background:#2c2c2e; padding:12px; border-radius:8px; margin-bottom:20px;">
-                <div style="font-weight:700; font-size:12px; color:var(--accent); margin-bottom:4px;">STEP 1</div>
-                <div style="font-size:13px;">Create free account at <a href="https://account.avwx.rest" target="_blank" style="color:#fff;">account.avwx.rest</a></div>
-                <div style="font-weight:700; font-size:12px; color:var(--accent); margin-top:12px; margin-bottom:4px;">STEP 2</div>
-                <div style="font-size:13px;">Copy your <b>API Token</b> and paste below:</div>
-            </div>
-            <input type="text" id="userKeyInput" class="conv-inp" placeholder="Paste Token Here..." style="padding:10px; font-size:14px; margin-bottom:12px;">
-            <button class="tool-btn" style="background:var(--accent); border:none; padding:12px;" onclick="saveNewKey()">Save & Retry</button>
-        </div>
-    </div>
 
     <div class="top-bar">
         <div class="search-wrapper">
@@ -205,6 +172,8 @@
                 <span id="clearBtn" class="clear-btn" onclick="clearSearch()">✖</span>
             </div>
         </div>
+        <button class="icon-btn" onclick="loadData()" title="Force Refresh">↻</button>
+        
         <div id="headerCat" class="badge badge-cat">--</div>
         <div id="zuluTime" class="badge badge-time">--:--Z</div>
         <a id="linkSkyVector" href="#" target="_blank" class="icon-btn" title="Charts">🗺️</a>
@@ -216,7 +185,6 @@
         <div class="tab" onclick="setTab('info')">INFO</div>
         <div class="tab" onclick="setTab('atc')">ATC</div>
         <div class="tab" onclick="setTab('world')">WORLD</div>
-        <div class="tab" onclick="setTab('notes')">NOTES</div>
         <div class="tab" onclick="setTab('tools')">TOOLS</div>
     </div>
 
@@ -271,7 +239,6 @@
     <div id="tab-info" class="view-section">
         <div style="font-size:20px; font-weight:700; margin-bottom:4px;" id="infoName">Unknown</div>
         <div style="font-size:12px; color:var(--sub-text); margin-bottom:12px;" id="infoLoc">--</div>
-        
         <div class="info-grid">
             <div class="info-card"><div class="ic-lbl">ICAO / IATA</div><div class="ic-val" id="infoCodes">--</div></div>
             <div class="info-card"><div class="ic-lbl">Elevation</div><div class="ic-val" id="infoElev">--</div></div>
@@ -301,36 +268,14 @@
     </div>
     
     <div id="tab-atc" class="view-section">
-        <div class="section-title" style="margin-top:0;">Live ATC Radio</div>
-        
-        <div class="info-card" style="margin-bottom: 20px;">
-            <div class="m-label">Select Feed</div>
-            <select id="atcSelect" class="stealth-select" style="margin-bottom:12px;" onchange="updateATCPlayer()">
-                <option value="RCTP">RCTP - Taipei Delivery/Gnd/Twr/App</option>
-                <option value="KMCC">KMCC - McChord Field</option>
-                <option value="CURRENT" id="optCurrent">Search Current (RCTP)</option>
-            </select>
-
-            <div id="audioContainer">
-                <audio id="atcAudio" controls style="width: 100%; height: 32px; filter: invert(0.9); display:block;">
-                    <source id="atcSource" src="" type="audio/mpeg">
-                    Your browser does not support audio.
-                </audio>
-            </div>
-
-            <a id="atcExternalBtn" href="#" target="_blank" class="atc-btn hidden" style="margin-top:10px; text-align:center; justify-content:center;">
-                <span>📡 Launch Live Player</span>
-            </a>
-            
-            <div id="atcStatus" style="font-size:11px; color:#8e8e93; margin-top:8px; text-align:center;">
-                Ready
-            </div>
+        <div class="info-card" style="margin-bottom: 20px;" id="audioContainer">
+             <div class="ic-lbl" style="margin-bottom:8px;" id="audioLabel">AUDIO / ATIS</div>
+             <div id="audioPlayerTarget"></div>
         </div>
-
-        <div class="section-title">External Resources</div>
+        <div class="section-title">EXTERNAL RESOURCES</div>
         <div style="display: flex; flex-direction: column;">
             <a href="https://beta.twatc.net/" target="_blank" class="atc-btn"><span>🇹🇼 Taiwan Virtual ATC</span><span style="color:var(--sub-text)">↗</span></a>
-            <a href="https://www.liveatc.net/" target="_blank" class="atc-btn"><span>🌐 LiveATC.net Home</span><span style="color:var(--sub-text)">↗</span></a>
+            <a href="https://www.liveatc.net/" target="_blank" class="atc-btn"><span>📡 LiveATC.net</span><span style="color:var(--sub-text)">↗</span></a>
             <a href="https://aviationlisteners.aero" target="_blank" class="atc-btn"><span>🎧 AviationListeners.aero</span><span style="color:var(--sub-text)">↗</span></a>
         </div>
     </div>
@@ -342,25 +287,9 @@
         </div>
         <div class="world-grid" id="worldContainer"></div>
     </div>
-    
-    <div id="tab-notes" class="view-section">
-        <div class="section-title" style="margin-top:0;">Visual Reference</div>
-        <div id="miniMap"></div>
-        
-        <div class="section-title">Scratchpad (Draw)</div>
-        <div class="scratchpad-container">
-            <canvas id="scratchpad" width="350" height="200"></canvas>
-        </div>
-        <div style="display:flex; gap:8px; margin-top:8px;">
-            <button class="tool-btn" style="background:var(--danger);" onclick="clearPad()">Clear Pad</button>
-            <button class="tool-btn" onclick="togglePenColor()">Color: Black</button>
-        </div>
-
-        <div class="section-title">Text Notes (Type)</div>
-        <textarea id="textNotes" class="text-pad" placeholder="Type notes here (e.g. Flight Plan, Squawks, ATIS info)..." oninput="saveTextNotes()"></textarea>
-    </div>
 
     <div id="tab-tools" class="view-section">
+        
         <div class="section-title" style="margin-top:0;">Personal Minimums (Go/No-Go)</div>
         <div class="info-card" style="border-left: 4px solid #555;" id="minsCard">
             <div class="conv-row">
@@ -425,9 +354,7 @@
 
     <script>
         // --- GLOBALS ---
-        // Fallback key if user hasn't provided one
-        const DEFAULT_KEY = 'dMzS0-M9_ku1bYySTtsq4pZE8fEEiTUJaNtvqSDEgUs';
-        let userApiKey = localStorage.getItem('efb_api_key') || DEFAULT_KEY;
+        const AVWX_KEY = '7BVPOe0lM6CvvLCOGwmcmCxTp1n6PgCdcBJ9Lnt3WpI';
         
         let currentWind = { dir:0, spd:0 }; 
         let currentMetar = { temp: 15, alt: 1013, altUnit: 'hPa' };
@@ -435,15 +362,7 @@
         let useMetric = true; 
         let tafDataCache = null;
         let timerInterval = null, startTime = 0, elapsed = 0, running = false;
-        window.lastMetarObj = null; 
-
-        // Map Globals
-        let mapInstance = null;
-
-        // Scratchpad Globals
-        let drawing = false;
-        let ctxPad = null;
-        let penColor = '#000000';
+        let lastMetarObj = null; 
 
         // Embedded Database of Major Aviation Hubs
         const AVIATION_CITIES = [
@@ -459,23 +378,8 @@
         // --- AUTH & INIT ---
         function initApp() {
             initWorldClock();
-            initScratchpad();
-            initTextNotes();
             loadData();
             setInterval(updateClock, 1000);
-            updateATCPlayer();
-        }
-
-        // --- AUTH LOGIC (NEW) ---
-        function saveNewKey() {
-            const input = document.getElementById('userKeyInput');
-            const newKey = input.value.trim();
-            if(newKey) {
-                userApiKey = newKey;
-                localStorage.setItem('efb_api_key', newKey);
-                document.getElementById('apiModal').classList.add('hidden');
-                loadData(); // Retry immediately
-            }
         }
 
         // --- TABS & UI ---
@@ -484,13 +388,7 @@
             document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
             document.getElementById('tab-'+name).classList.add('active');
             event.target.classList.add('active');
-            if(name === 'info' && stationData) {
-                renderRunwaysComplex();
-            }
-            if(name === 'notes' && mapInstance) {
-                // Must resize map when tab becomes visible
-                setTimeout(() => { mapInstance.invalidateSize(); }, 200);
-            }
+            if(name === 'info' && stationData) renderRunwaysComplex();
             if(name === 'world') updateClock(); 
         }
         function toggleUnits() {
@@ -517,32 +415,24 @@
             inputEl.blur();
             document.getElementById('linkSkyVector').href = `https://skyvector.com/airport/${icao}`;
             updateHeaderCat('Loading', '');
+            
+            // Clear Warnings
+            const rawContainer = document.getElementById('rawMetar');
+            rawContainer.innerHTML = 'Loading...';
 
-            const headers = { 'Authorization': `Bearer ${userApiKey}` };
+            const headers = { 'Authorization': `Bearer ${AVWX_KEY}` };
+            const cb = Date.now(); // Cache Buster
             
             try {
-                // 1. Check Station First (Basic Validity)
-                const stationResp = await fetch(`https://avwx.rest/api/station/${icao}`, {headers});
-                
-                // NEW: Handle 401 Unauthorized specifically
-                if(stationResp.status === 401) {
-                    document.getElementById('apiModal').classList.remove('hidden');
-                    updateHeaderCat('Auth Err', 'cat-ifr');
-                    return; // Stop execution
-                }
-
-                if(!stationResp.ok) throw new Error(`Station Error (${stationResp.status})`);
-                const station = await stationResp.json();
-
-                // 2. Parallel Load Rest
-                const [metar, taf, notams] = await Promise.all([
-                    fetch(`https://avwx.rest/api/metar/${icao}`, {headers}).then(r=>r.json()),
-                    fetch(`https://avwx.rest/api/taf/${icao}`, {headers}).then(r=>r.json()).catch(e=>({raw:"TAF Error"})),
-                    fetch(`https://avwx.rest/api/notam/${icao}`, {headers}).then(r=>r.json()).catch(e=>[])
+                const [station, metar, taf, notams] = await Promise.all([
+                    fetch(`https://avwx.rest/api/station/${icao}?t=${cb}`, {headers}).then(r=>{if(!r.ok)throw new Error('Station');return r.json()}),
+                    fetch(`https://avwx.rest/api/metar/${icao}?t=${cb}`, {headers}).then(r=>r.json()),
+                    fetch(`https://avwx.rest/api/taf/${icao}?t=${cb}`, {headers}).then(r=>r.json()).catch(e=>({raw:"TAF Error"})),
+                    fetch(`https://avwx.rest/api/notam/${icao}?t=${cb}`, {headers}).then(r=>r.json()).catch(e=>[])
                 ]);
                 
                 stationData = station;
-                window.lastMetarObj = metar; 
+                lastMetarObj = metar;
                 
                 // Parse Wind
                 currentWind = { dir: metar.wind_direction?.value||0, spd: metar.wind_speed?.value||0 };
@@ -556,28 +446,58 @@
                 renderMetar(metar);
                 renderInfo(station);
                 
-                // Populate Runway Select
+                // --- AUTO RUNWAY SELECTION ---
                 const sel = document.getElementById('rwySelect'); sel.innerHTML = '';
+                const mv = station.magnetic_variation || 0;
+                const windMag = currentWind.dir - mv;
+                let bestRwy = null, maxHW = -999;
+
                 (station.runways || []).forEach(r => {
                     sel.add(new Option(`RWY ${r.ident1}`, r.ident1));
                     sel.add(new Option(`RWY ${r.ident2}`, r.ident2));
+                    
+                    // Logic to find best headwind
+                    let h1 = parseInt(r.ident1.replace(/\D/g,'')) * 10;
+                    let hw1 = Math.cos((windMag - h1) * (Math.PI/180)) * currentWind.spd;
+                    let h2 = parseInt(r.ident2.replace(/\D/g,'')) * 10;
+                    let hw2 = Math.cos((windMag - h2) * (Math.PI/180)) * currentWind.spd;
+                    
+                    if(hw1 > maxHW) { maxHW = hw1; bestRwy = r.ident1; }
+                    if(hw2 > maxHW) { maxHW = hw2; bestRwy = r.ident2; }
                 });
-                if(station.runways.length > 0) sel.value = station.runways[0].ident1; 
                 
-                drawWindRose(); // This also triggers checkMins()
+                if(bestRwy) sel.value = bestRwy;
+                else if(station.runways.length > 0) sel.value = station.runways[0].ident1;
+                
+                drawWindRose(); 
                 renderTaf(taf);
                 
                 // NOTAMs
                 document.getElementById('notamList').innerHTML = Array.isArray(notams) ? 
                     notams.map(n => `<div style="margin-bottom:8px; border-left:3px solid var(--warn); padding-left:6px;">${n.raw}</div>`).join('') : "No Data";
 
-                // Update ATC Context
-                updateATCPlayer();
+                // --- AUDIO PLAYER LOGIC ---
+                const audioTarget = document.getElementById('audioPlayerTarget');
+                const audioLbl = document.getElementById('audioLabel');
+                if(icao === 'RCTP' || icao === 'RCKH' || icao === 'RCSS') {
+                    audioLbl.innerText = `${icao} ATIS (TWATC Stream)`;
+                    audioTarget.innerHTML = `<audio controls style="width: 100%; height: 32px; filter: invert(0.9);"><source src="https://stream.twatc.net/${icao}_ATIS" type="audio/mpeg"></audio>`;
+                } else {
+                    audioLbl.innerText = "External Audio Source";
+                    audioTarget.innerHTML = `<a href="https://www.liveatc.net/search/?q=${icao}" target="_blank" class="tool-btn" style="text-align:center; display:block; text-decoration:none;">📡 Search ${icao} on LiveATC</a>`;
+                }
 
             } catch(e) {
                 console.error(e);
                 updateHeaderCat('Err', 'cat-ifr');
-                alert(`Error loading data: ${e.message}`);
+                // Smart Error Handling
+                const rawContainer = document.getElementById('rawMetar');
+                rawContainer.innerHTML = `<div style="text-align:center; padding:15px; color:var(--sub-text);">
+                    Unable to load data for this station.<br>
+                    <a href="https://metar-taf.com/metar/${icao}" target="_blank" class="tool-btn" style="margin-top:10px; display:inline-block; text-decoration:none;">
+                        Try External Source ↗
+                    </a>
+                </div>`;
             }
         }
 
@@ -588,11 +508,33 @@
 
         // --- RENDERING FUNCTIONS ---
         function renderMetar(d) {
-            document.getElementById('rawMetar').innerText = d.raw;
+            const rawContainer = document.getElementById('rawMetar');
+            
+            // 1. Check for valid data object
+            if (!d || !d.time || !d.time.dt) {
+                rawContainer.innerHTML = "No METAR Available"; return; 
+            }
+
+            rawContainer.innerText = d.raw;
             const rules = d.flight_rules; 
             let css = 'cat-vfr';
             if(rules==='MVFR') css='cat-mvfr'; if(rules==='IFR') css='cat-ifr'; if(rules==='LIFR') css='cat-lifr';
-            updateHeaderCat(rules, css);
+            
+            // 2. STALE DATA CHECK (Updated for YPPF fix)
+            const obsTime = new Date(d.time.dt);
+            const now = new Date();
+            const ageHrs = (now - obsTime) / (1000 * 60 * 60);
+            
+            if (ageHrs > 2) {
+                updateHeaderCat('OLD', 'cat-ifr'); 
+                const banner = document.createElement('div');
+                banner.style.cssText = "background:var(--danger); color:white; padding:8px; border-radius:6px; margin-bottom:8px; text-align:center; font-weight:bold;";
+                banner.innerHTML = `⚠️ DATA OUTDATED (${Math.round(ageHrs)}h ago)<br><a href="https://metar-taf.com/metar/${stationData?stationData.icao:''}" target="_blank" style="color:white; text-decoration:underline; font-weight:400; font-size:12px;">Check Backup Source ↗</a>`;
+                rawContainer.parentNode.insertBefore(banner, rawContainer);
+            } else {
+                updateHeaderCat(rules, css);
+            }
+
             document.getElementById('mWind').innerText = `${currentWind.dir.toString().padStart(3,'0')}° / ${currentWind.spd}kt`;
             document.getElementById('mVis').innerText = d.visibility ? `${d.visibility.value} sm` : '--';
             const c = d.clouds?.[0]; document.getElementById('mCeil').innerText = c ? `${c.type} ${c.altitude.toString().padStart(3,'0')}` : "CLR";
@@ -618,13 +560,8 @@
             document.getElementById('infoElev').innerText = `${d.elevation_ft} ft`;
             document.getElementById('infoCoords').innerText = `${d.latitude.toFixed(4)}, ${d.longitude.toFixed(4)}`;
 
-            // 1. Update ATC Dropdown Label for the "Current" option
-            document.getElementById('optCurrent').innerText = `Search Current (${d.icao})`;
-
-            // 2. Render Frequencies with Fallback
             const fContainer = document.getElementById('freqContainer');
             fContainer.innerHTML = '';
-            
             if(d.frequencies && d.frequencies.length > 0) {
                  const priority = { "ATIS":1, "TWR":2, "GND":3, "APP":4, "DEP":5 };
                  d.frequencies.sort((a,b) => {
@@ -638,16 +575,7 @@
                      card.innerHTML = `<div class="freq-type">${f.type}</div><div class="freq-val">${f.frequency}</div>`;
                      fContainer.appendChild(card);
                  });
-            } else { 
-                // FALLBACK
-                fContainer.innerHTML = `
-                <div style="grid-column:span 3; display:flex; flex-direction:column; align-items:center; gap:8px;">
-                    <div style="font-size:12px; color:#888;">No frequency data in free API.</div>
-                    <a href="https://skyvector.com/airport/${d.icao}" target="_blank" class="tool-btn" style="text-align:center; text-decoration:none;">
-                        Find Frequencies on SkyVector ↗
-                    </a>
-                </div>`; 
-            }
+            } else { fContainer.innerHTML = `<div style="grid-column:span 3; font-size:12px; color:#555; text-align:center;">No Freq Data Available</div>`; }
 
             // Calcs
             const elev = d.elevation_ft; 
@@ -673,128 +601,7 @@
             document.getElementById('calcOffset').innerText = `UTC ${offset >= 0 ? '+' : ''}${offset} (Est)`;
             const mv = d.magnetic_variation;
             document.getElementById('infoMag').innerText = mv ? `${Math.abs(mv)}° ${mv < 0 ? 'W' : 'E'}` : '0°';
-            
             renderRunwaysComplex();
-            renderMap(d.latitude, d.longitude); // Trigger Map
-        }
-
-        // --- MAP LOGIC ---
-        function renderMap(lat, lon) {
-            if (mapInstance) {
-                mapInstance.remove();
-                mapInstance = null;
-            }
-            mapInstance = L.map('miniMap').setView([lat, lon], 13);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap &copy; CartoDB',
-                subdomains: 'abcd',
-                maxZoom: 19
-            }).addTo(mapInstance);
-            L.marker([lat, lon]).addTo(mapInstance)
-                .bindPopup(stationData.name)
-                .openPopup();
-            // Force resize in case container was hidden
-            setTimeout(() => { mapInstance.invalidateSize(); }, 200);
-        }
-
-        // --- SCRATCHPAD LOGIC ---
-        function initScratchpad() {
-            const canvas = document.getElementById('scratchpad');
-            const rect = canvas.parentElement.getBoundingClientRect();
-            canvas.width = rect.width;
-            
-            ctxPad = canvas.getContext('2d');
-            ctxPad.lineWidth = 2;
-            ctxPad.lineCap = 'round';
-            ctxPad.strokeStyle = penColor;
-
-            // Mouse Events
-            canvas.addEventListener('mousedown', startDraw);
-            canvas.addEventListener('mouseup', stopDraw);
-            canvas.addEventListener('mousemove', draw);
-            
-            // Touch Events (Stop scrolling)
-            canvas.addEventListener('touchstart', (e) => { 
-                if(e.target === canvas) e.preventDefault();
-                startDraw(e.touches[0]); 
-            }, {passive: false});
-            canvas.addEventListener('touchend', stopDraw);
-            canvas.addEventListener('touchmove', (e) => { 
-                if(e.target === canvas) e.preventDefault();
-                draw(e.touches[0]); 
-            }, {passive: false});
-        }
-        function startDraw(e) {
-            drawing = true;
-            draw(e);
-        }
-        function stopDraw() {
-            drawing = false;
-            ctxPad.beginPath();
-        }
-        function draw(e) {
-            if (!drawing) return;
-            const canvas = document.getElementById('scratchpad');
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-
-            ctxPad.lineTo(x, y);
-            ctxPad.stroke();
-            ctxPad.beginPath();
-            ctxPad.moveTo(x, y);
-        }
-        function clearPad() {
-            const canvas = document.getElementById('scratchpad');
-            ctxPad.clearRect(0, 0, canvas.width, canvas.height);
-        }
-        function togglePenColor() {
-            penColor = penColor === '#000000' ? '#0a84ff' : '#000000';
-            ctxPad.strokeStyle = penColor;
-            event.target.innerText = penColor === '#000000' ? "Color: Black" : "Color: Blue";
-        }
-
-        // --- TEXT NOTES LOGIC ---
-        function initTextNotes() {
-            const stored = localStorage.getItem('efb_notes');
-            if(stored) document.getElementById('textNotes').value = stored;
-        }
-        function saveTextNotes() {
-            localStorage.setItem('efb_notes', document.getElementById('textNotes').value);
-        }
-
-        // --- ATC LOGIC ---
-        function updateATCPlayer() {
-            const mode = document.getElementById('atcSelect').value;
-            const player = document.getElementById('atcAudio');
-            const source = document.getElementById('atcSource');
-            const extBtn = document.getElementById('atcExternalBtn');
-            const status = document.getElementById('atcStatus');
-            const currentICAO = document.getElementById('icao').value.toUpperCase();
-
-            // Reset
-            player.classList.add('hidden');
-            extBtn.classList.add('hidden');
-            player.pause();
-
-            if (mode === 'RCTP') {
-                source.src = "https://stream.twatc.net/RCTP_Scan2";
-                player.load();
-                player.classList.remove('hidden');
-                status.innerText = "Stream Source: TWATC.net";
-            } 
-            else if (mode === 'KMCC') {
-                extBtn.href = "https://www.liveatc.net/hlisten.php?mount=kmcc&icao=kmcc";
-                extBtn.querySelector('span').innerText = "📡 Launch KMCC Player";
-                extBtn.classList.remove('hidden');
-                status.innerText = "Opening LiveATC Web Player";
-            } 
-            else if (mode === 'CURRENT') {
-                extBtn.href = `https://www.liveatc.net/search/?designator=${currentICAO}`;
-                extBtn.querySelector('span').innerText = `🔍 Search LiveATC: ${currentICAO}`;
-                extBtn.classList.remove('hidden');
-                status.innerText = `Searching available feeds for ${currentICAO}...`;
-            }
         }
 
         // --- RUNWAY & WIND VIZ ---
@@ -854,7 +661,7 @@
                 const vHW = document.getElementById('valHW'); vHW.innerText = hw >= 0 ? `${hw}kt Head` : `${Math.abs(hw)}kt Tail`; vHW.style.color = hw < 0 ? 'var(--danger)' : 'var(--success)';
                 const vXW = document.getElementById('valXW'); vXW.innerText = `${Math.abs(xw)}kt ${xw >= 0 ? 'L' : 'R'}`;
                 
-                checkMins(); 
+                checkMins(); // <--- TRIGGER MINS CHECK
             }
             if(currentWind.spd > 0) {
                 const windRad = (windMag - 90) * (Math.PI/180); ctx.save(); ctx.translate(cx, cy); ctx.rotate(windRad);
@@ -883,10 +690,10 @@
             // Find Ceiling (Lowest BKN or OVC)
             let actualCeil = 99999;
             let ceilType = "CLR";
-            if (window.lastMetarObj && window.lastMetarObj.clouds) {
-                const ceilingLayer = window.lastMetarObj.clouds.find(c => c.type === 'BKN' || c.type === 'OVC');
+            if (lastMetarObj && lastMetarObj.clouds) {
+                const ceilingLayer = lastMetarObj.clouds.find(c => c.type === 'BKN' || c.type === 'OVC');
                 if (ceilingLayer) {
-                    actualCeil = ceilingLayer.altitude * 100; 
+                    actualCeil = ceilingLayer.altitude * 100; // API usually gives hundreds
                     ceilType = ceilingLayer.type;
                 }
             }
@@ -910,28 +717,35 @@
 
         // --- E6B CALC ---
         function calcE6B() {
+            // Inputs
             const alt = parseFloat(document.getElementById('e6bAlt').value) || 0;
             const qnh = parseFloat(document.getElementById('e6bQnh').value) || 1013.25;
             let tempInput = document.getElementById('e6bTemp').value;
+            // Default to Std if empty
             const stdTempC = 15 - (0.0019812 * alt);
             const actTempC = tempInput === "" ? stdTempC : parseFloat(tempInput);
             const ias = parseFloat(document.getElementById('e6bIas').value) || 0;
 
+            // PA: Alt + (1013 - QNH) * 30 
             const pa = alt + (1013.25 - qnh) * 27.3;
             document.getElementById('resPA').innerText = Math.round(pa) + " ft";
 
+            // ISA Dev
             const isaDev = actTempC - (15 - (0.00198 * pa));
             const devSign = isaDev >= 0 ? "+" : "";
             document.getElementById('resISA').innerText = `ISA ${devSign}${Math.round(isaDev)}°C`;
 
+            // DA: PA + [118.8 * (ActTemp - StdTempAtPA)]
             const da = pa + (118.8 * (actTempC - (15 - (0.00198 * pa))));
             document.getElementById('resDA').innerText = Math.round(da) + " ft";
 
+            // TAS & Mach
             const tempK = actTempC + 273.15;
             const speedOfSoundKts = 38.967854 * Math.sqrt(tempK);
             document.getElementById('resSoS').innerText = Math.round(speedOfSoundKts) + " kts";
 
             if (ias > 0) {
+                // TAS = IAS * sqrt(stdDensity / density)
                 const pressAtPA = 1013.25 * Math.pow(1 - (0.0000225577 * pa), 5.25588);
                 const density = (pressAtPA * 100) / (287.05 * tempK);
                 const stdDensity = 1.225;
@@ -972,6 +786,7 @@
 
         // --- WORLD CLOCK WITH ONLINE SEARCH ---
         function initWorldClock() {
+            // Load Saved
             const stored = localStorage.getItem('efb_cities_v46');
             if(stored) {
                 cityList = JSON.parse(stored);
@@ -989,6 +804,7 @@
             const btn = document.querySelector('.ac-btn');
             const originalText = btn.innerText; btn.innerText = "Searching..."; btn.disabled = true;
 
+            // 1. Try DB
             let found = AVIATION_CITIES.find(c => `${c.n} (${c.icao}/${c.iata})` === val);
             if (!found) {
                 const upper = val.toUpperCase();
@@ -998,6 +814,7 @@
             if (found) {
                 addCityToList(found.n, found.z, `${found.icao}/${found.iata}`);
             } else {
+                // 2. Try Online
                 try {
                     const resp = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(val)}&count=1&language=en&format=json`);
                     const data = await resp.json();
@@ -1022,6 +839,7 @@
         
         function updateClock() {
             const now = new Date();
+            // Header
             document.getElementById('zuluTime').innerText = `${now.getUTCHours().toString().padStart(2,'0')}:${now.getUTCMinutes().toString().padStart(2,'0')}Z`;
 
             if(document.getElementById('tab-world').classList.contains('active')) {
@@ -1029,6 +847,7 @@
                 cityList.forEach(c => {
                     const timeStr = now.toLocaleTimeString('en-US', { timeZone: c.z, hour: '2-digit', minute: '2-digit', hour12: false });
                     
+                    // Relative Time Logic
                     const targetDateStr = now.toLocaleString('en-US', { timeZone: c.z });
                     const targetDate = new Date(targetDateStr);
                     const localDay = now.getDay(); const targetDay = targetDate.getDay();
