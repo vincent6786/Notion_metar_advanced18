@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Pilot EFB V47 (Instant)</title>
+    <title>Notion Pilot EFB V53 (Always Suggest Nearby)</title>
     <style>
         :root {
             --bg: #000000; --card-bg: #1c1c1e; --text: #ffffff; --sub-text: #8e8e93;
@@ -41,6 +41,7 @@
             width: 40px; height: 100%; border-radius: 8px; cursor: pointer; 
             display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 18px;
         }
+        .icon-btn:hover { background: #2c2c2e; }
         .badge { height: 100%; display: flex; align-items: center; justify-content: center; padding: 0 12px; border-radius: 8px; font-weight: 700; font-size: 15px; min-width: 60px; }
         .badge-time { background: var(--card-bg); border: 1px solid var(--border); color: #fff; font-family: 'SF Mono', monospace; letter-spacing: -0.5px; }
         .badge-cat { background: var(--card-bg); color: var(--sub-text); }
@@ -171,8 +172,8 @@
                 <span id="clearBtn" class="clear-btn" onclick="clearSearch()">✖</span>
             </div>
         </div>
-        
         <button class="icon-btn" onclick="loadData()" title="Force Refresh">↻</button>
+        
         <div id="headerCat" class="badge badge-cat">--</div>
         <div id="zuluTime" class="badge badge-time">--:--Z</div>
         <a id="linkSkyVector" href="#" target="_blank" class="icon-btn" title="Charts">🗺️</a>
@@ -267,12 +268,9 @@
     </div>
     
     <div id="tab-atc" class="view-section">
-        <div class="info-card" style="margin-bottom: 20px;">
-            <div class="ic-lbl" style="margin-bottom:8px;">RCTP ATIS (Live Stream)</div>
-            <audio controls style="width: 100%; height: 32px; filter: invert(0.9);">
-                <source src="https://stream.twatc.net/RCTP_ATIS" type="audio/mpeg">
-                Your browser does not support audio.
-            </audio>
+        <div class="info-card" style="margin-bottom: 20px;" id="audioContainer">
+             <div class="ic-lbl" style="margin-bottom:8px;" id="audioLabel">AUDIO / ATIS</div>
+             <div id="audioPlayerTarget"></div>
         </div>
         <div class="section-title">EXTERNAL RESOURCES</div>
         <div style="display: flex; flex-direction: column;">
@@ -356,8 +354,6 @@
 
     <script>
         // --- GLOBALS ---
-        // I have inserted your token below. 
-        // NOTE: Do not share this file publicly with this token inside.
         const AVWX_KEY = '7BVPOe0lM6CvvLCOGwmcmCxTp1n6PgCdcBJ9Lnt3WpI';
         
         let currentWind = { dir:0, spd:0 }; 
@@ -366,9 +362,7 @@
         let useMetric = true; 
         let tafDataCache = null;
         let timerInterval = null, startTime = 0, elapsed = 0, running = false;
-        
-        // Save the raw metar object for Clouds checking
-        window.lastMetarObj = null; 
+        let lastMetarObj = null; 
 
         // Embedded Database of Major Aviation Hubs
         const AVIATION_CITIES = [
@@ -412,7 +406,6 @@
         // --- DATA LOADING ---
         async function loadData() {
             const inputEl = document.getElementById('icao');
-            // Auto-load last station
             if(!inputEl.value) inputEl.value = localStorage.getItem('efb_last_station') || 'RCTP';
             
             const icao = inputEl.value.toUpperCase();
@@ -422,53 +415,133 @@
             inputEl.blur();
             document.getElementById('linkSkyVector').href = `https://skyvector.com/airport/${icao}`;
             updateHeaderCat('Loading', '');
+            
+            // --- FIX: CLEAR PREVIOUS BANNERS & SUGGESTIONS ---
+            const oldBanner = document.getElementById('staleBanner');
+            if(oldBanner) oldBanner.remove();
+            
+            const oldSuggestions = document.getElementById('nearbySuggestions');
+            if(oldSuggestions) oldSuggestions.remove();
+
+            // Clear text container
+            const rawContainer = document.getElementById('rawMetar');
+            rawContainer.innerHTML = 'Loading...';
 
             const headers = { 'Authorization': `Bearer ${AVWX_KEY}` };
+            const cb = Date.now(); // Cache Busting timestamp
             
             try {
-                // NEW CODE (With Cache Busting)
-                const cb = Date.now(); // Get current timestamp
-                const [station, metar, taf, notams] = await Promise.all([
-                    fetch(`https://avwx.rest/api/station/${icao}?t=${cb}`, {headers}).then(r=>{if(!r.ok)throw new Error('Station');return r.json()}),
-                    fetch(`https://avwx.rest/api/metar/${icao}?t=${cb}`, {headers}).then(r=>r.json()),
-                    fetch(`https://avwx.rest/api/taf/${icao}?t=${cb}`, {headers}).then(r=>r.json()).catch(e=>({raw:"TAF Error"})),
-                    fetch(`https://avwx.rest/api/notam/${icao}?t=${cb}`, {headers}).then(r=>r.json()).catch(e=>[])
-                ]);
-                
+                // 1. Fetch Station Info FIRST (so we have coords even if METAR fails)
+                const stationResp = await fetch(`https://avwx.rest/api/station/${icao}?t=${cb}`, {headers});
+                if(!stationResp.ok) throw new Error("Station Not Found");
+                const station = await stationResp.json();
                 stationData = station;
-                window.lastMetarObj = metar; // Store for Mins Checker
-                
-                // Parse Wind
-                currentWind = { dir: metar.wind_direction?.value||0, spd: metar.wind_speed?.value||0 };
-                
-                // Parse Altimeter
-                let altVal = metar.altimeter?.value || 1013;
-                let altUnit = 'hPa';
-                if(altVal < 200) altUnit = 'inHg';
-                currentMetar = { temp: metar.temperature?.value || 15, alt: altVal, altUnit: altUnit };
 
-                renderMetar(metar);
+                // 2. Render Info Tab immediately
                 renderInfo(station);
+
+                // 3. Now try to fetch Weather
+                const [metarRes, tafRes, notamRes] = await Promise.allSettled([
+                    fetch(`https://avwx.rest/api/metar/${icao}?t=${cb}`, {headers}).then(r=>r.json()),
+                    fetch(`https://avwx.rest/api/taf/${icao}?t=${cb}`, {headers}).then(r=>r.json()),
+                    fetch(`https://avwx.rest/api/notam/${icao}?t=${cb}`, {headers}).then(r=>r.json())
+                ]);
+
+                // Process METAR
+                if(metarRes.status === 'fulfilled' && metarRes.value && !metarRes.value.error) {
+                    const m = metarRes.value;
+                    lastMetarObj = m;
+                    currentWind = { dir: m.wind_direction?.value||0, spd: m.wind_speed?.value||0 };
+                    
+                    let altVal = m.altimeter?.value || 1013;
+                    let altUnit = 'hPa';
+                    if(altVal < 200) altUnit = 'inHg';
+                    currentMetar = { temp: m.temperature?.value || 15, alt: altVal, altUnit: altUnit };
+                    
+                    renderMetar(m); // This renders the data OR the "Old Data" warning
+                    
+                    // CHECK IF STALE (OLD DATA)
+                    const obsTime = new Date(m.time.dt);
+                    const ageHrs = (new Date() - obsTime) / (1000 * 60 * 60);
+                    if (ageHrs > 2) {
+                        const banner = document.createElement('div');
+                        banner.id = "staleBanner"; // ID for auto-clear
+                        banner.style.cssText = "background:var(--danger); color:white; padding:8px; border-radius:6px; margin-bottom:8px; text-align:center; font-weight:bold;";
+                        banner.innerHTML = `⚠️ DATA OUTDATED (${Math.round(ageHrs)}h ago)<br><a href="https://metar-taf.com/metar/${stationData?stationData.icao:''}" target="_blank" style="color:white; text-decoration:underline; font-weight:400; font-size:12px;">Check Backup Source ↗</a>`;
+                        const rc = document.getElementById('rawMetar');
+                        rc.parentNode.insertBefore(banner, rc);
+                        updateHeaderCat('OLD', 'cat-ifr'); 
+                    }
+
+                    // --- NEW: ALWAYS SHOW NEARBY STATIONS ---
+                    // Called here on success so it appears at the bottom of the Raw Text
+                    findNearbyStations(station.latitude, station.longitude);
+
+                } else {
+                    // METAR FAILED (e.g. 404 or empty)
+                    throw new Error("No Weather Data");
+                }
+
+                // Process TAF
+                if(tafRes.status === 'fulfilled') renderTaf(tafRes.value);
                 
-                // Populate Runway Select
+                // Process NOTAMs
+                if(notamRes.status === 'fulfilled') {
+                     const n = notamRes.value;
+                     document.getElementById('notamList').innerHTML = Array.isArray(n) ? 
+                        n.map(x => `<div style="margin-bottom:8px; border-left:3px solid var(--warn); padding-left:6px;">${x.raw}</div>`).join('') : "No Data";
+                }
+
+                // --- AUTO RUNWAY START ---
                 const sel = document.getElementById('rwySelect'); sel.innerHTML = '';
+                const mv = station.magnetic_variation || 0;
+                const windMag = currentWind.dir - mv;
+                let bestRwy = null, maxHW = -999;
                 (station.runways || []).forEach(r => {
                     sel.add(new Option(`RWY ${r.ident1}`, r.ident1));
                     sel.add(new Option(`RWY ${r.ident2}`, r.ident2));
+                    let h1 = parseInt(r.ident1.replace(/\D/g,'')) * 10;
+                    let hw1 = Math.cos((windMag - h1) * (Math.PI/180)) * currentWind.spd;
+                    let h2 = parseInt(r.ident2.replace(/\D/g,'')) * 10;
+                    let hw2 = Math.cos((windMag - h2) * (Math.PI/180)) * currentWind.spd;
+                    if(hw1 > maxHW) { maxHW = hw1; bestRwy = r.ident1; }
+                    if(hw2 > maxHW) { maxHW = hw2; bestRwy = r.ident2; }
                 });
-                if(station.runways.length > 0) sel.value = station.runways[0].ident1; 
-                
-                drawWindRose(); // This also triggers checkMins()
-                renderTaf(taf);
-                
-                // NOTAMs
-                document.getElementById('notamList').innerHTML = Array.isArray(notams) ? 
-                    notams.map(n => `<div style="margin-bottom:8px; border-left:3px solid var(--warn); padding-left:6px;">${n.raw}</div>`).join('') : "No Data";
+                if(bestRwy) sel.value = bestRwy; else if(station.runways.length > 0) sel.value = station.runways[0].ident1;
+                drawWindRose(); 
+                // --- AUTO RUNWAY END ---
+
+                // --- AUDIO START ---
+                const audioTarget = document.getElementById('audioPlayerTarget');
+                const audioLbl = document.getElementById('audioLabel');
+                if(icao === 'RCTP' || icao === 'RCKH' || icao === 'RCSS') {
+                    audioLbl.innerText = `${icao} ATIS (TWATC Stream)`;
+                    audioTarget.innerHTML = `<audio controls style="width: 100%; height: 32px; filter: invert(0.9);"><source src="https://stream.twatc.net/${icao}_ATIS" type="audio/mpeg"></audio>`;
+                } else {
+                    audioLbl.innerText = "External Audio Source";
+                    audioTarget.innerHTML = `<a href="https://www.liveatc.net/search/?q=${icao}" target="_blank" class="tool-btn" style="text-align:center; display:block; text-decoration:none;">📡 Search ${icao} on LiveATC</a>`;
+                }
+                // --- AUDIO END ---
 
             } catch(e) {
                 console.error(e);
-                updateHeaderCat('Err', 'cat-ifr');
-                alert("Error loading data. Check API Key or ICAO code.");
+                updateHeaderCat('N/A', 'cat-ifr');
+                
+                // --- FAILURE HANDLING WITH SUGGESTIONS ---
+                let errorMsg = `<div style="text-align:center; padding:15px; color:var(--sub-text);">
+                    No METAR data for ${icao}.<br>
+                    <a href="https://metar-taf.com/metar/${icao}" target="_blank" class="tool-btn" style="margin-top:10px; display:inline-block; text-decoration:none;">
+                        Check External Source ↗
+                    </a>
+                </div>`;
+                
+                rawContainer.innerHTML = errorMsg;
+
+                // If we successfully loaded the STATION data before failing on METAR,
+                // we have the coordinates to search nearby!
+                if(stationData && stationData.latitude) {
+                    findNearbyStations(stationData.latitude, stationData.longitude);
+                }
             }
         }
 
@@ -477,13 +550,91 @@
             badge.innerText = status; badge.className = 'badge badge-cat ' + colorClass;
         }
 
+        // --- UPDATED: SUGGEST NEARBY AIRPORTS (Fixed Object Error) ---
+        async function findNearbyStations(lat, lon) {
+            const container = document.getElementById('rawMetar');
+            
+            const oldSuggestions = document.getElementById('nearbySuggestions');
+            if(oldSuggestions) oldSuggestions.remove();
+
+            const suggestionBox = document.createElement('div');
+            suggestionBox.id = "nearbySuggestions";
+            suggestionBox.style.marginTop = "10px";
+            suggestionBox.style.borderTop = "1px solid #333";
+            suggestionBox.style.paddingTop = "8px";
+            suggestionBox.innerHTML = `<div style="color:var(--sub-text); font-size:11px; margin-bottom:6px;">NEARBY STATIONS WITH WEATHER:</div><div id="nearList" style="display:flex; gap:6px; flex-wrap:wrap;">Loading nearby...</div>`;
+            
+            container.appendChild(suggestionBox);
+
+            try {
+                const headers = { 'Authorization': `Bearer ${AVWX_KEY}` };
+                const url = `https://avwx.rest/api/station/near/${lat},${lon}?n=4`; 
+                const res = await fetch(url, { headers });
+                const data = await res.json();
+                
+                const list = document.getElementById('nearList');
+                list.innerHTML = "";
+                
+                // Get current ICAO to filter it out
+                const inputVal = document.getElementById('icao').value.toUpperCase();
+
+                // FIX: The array items are wrappers like { station: {...}, nautical_miles: 5.2 }
+                const others = data.filter(item => item.station.icao !== inputVal);
+
+                if(others.length === 0) {
+                    list.innerHTML = "<span style='color:#555;'>No other stations found nearby.</span>";
+                    return;
+                }
+
+                others.forEach(item => {
+                    const btn = document.createElement('button');
+                    btn.className = "tool-btn";
+                    btn.style.width = "auto";
+                    btn.style.margin = "0";
+                    btn.style.fontSize = "12px";
+                    
+                    // FIX: Access the nested station object
+                    const stn = item.station; 
+                    
+                    btn.innerText = `✈ ${stn.icao}`; 
+                    
+                    // Add distance if available (AVWX usually sends 'nautical_miles')
+                    if(item.nautical_miles) {
+                        btn.innerText += ` (${Math.round(item.nautical_miles)}nm)`;
+                    }
+
+                    btn.title = stn.name || "Nearby Station";
+
+                    btn.onclick = () => {
+                        document.getElementById('icao').value = stn.icao;
+                        loadData(); 
+                    };
+                    list.appendChild(btn);
+                });
+
+            } catch(e) {
+                console.error("Nearby search failed", e);
+                document.getElementById('nearList').innerText = "Could not load suggestions.";
+            }
+        }
+
         // --- RENDERING FUNCTIONS ---
         function renderMetar(d) {
-            document.getElementById('rawMetar').innerText = d.raw;
+            const rawContainer = document.getElementById('rawMetar');
+            
+            // 1. Check for valid data object
+            if (!d || !d.time || !d.time.dt) {
+                rawContainer.innerHTML = "No METAR Available"; return; 
+            }
+
+            rawContainer.innerText = d.raw;
             const rules = d.flight_rules; 
             let css = 'cat-vfr';
             if(rules==='MVFR') css='cat-mvfr'; if(rules==='IFR') css='cat-ifr'; if(rules==='LIFR') css='cat-lifr';
+            
+            // 2. STALE DATA CHECK IS NOW HANDLED IN LOAD DATA TO SEPARATE BANNER FROM RENDERING
             updateHeaderCat(rules, css);
+
             document.getElementById('mWind').innerText = `${currentWind.dir.toString().padStart(3,'0')}° / ${currentWind.spd}kt`;
             document.getElementById('mVis').innerText = d.visibility ? `${d.visibility.value} sm` : '--';
             const c = d.clouds?.[0]; document.getElementById('mCeil').innerText = c ? `${c.type} ${c.altitude.toString().padStart(3,'0')}` : "CLR";
@@ -639,8 +790,8 @@
             // Find Ceiling (Lowest BKN or OVC)
             let actualCeil = 99999;
             let ceilType = "CLR";
-            if (window.lastMetarObj && window.lastMetarObj.clouds) {
-                const ceilingLayer = window.lastMetarObj.clouds.find(c => c.type === 'BKN' || c.type === 'OVC');
+            if (lastMetarObj && lastMetarObj.clouds) {
+                const ceilingLayer = lastMetarObj.clouds.find(c => c.type === 'BKN' || c.type === 'OVC');
                 if (ceilingLayer) {
                     actualCeil = ceilingLayer.altitude * 100; // API usually gives hundreds
                     ceilType = ceilingLayer.type;
