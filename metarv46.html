@@ -39,7 +39,6 @@
         .view-section.active > * { animation: slideUpFade 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
         .view-section.active > *:nth-child(1) { animation-delay: 0.1s; }
         .view-section.active > *:nth-child(2) { animation-delay: 0.15s; }
-        .view-section.active > *:nth-child(3) { animation-delay: 0.2s; }
 
         /* --- 3. HEADER & SEARCH --- */
         .top-bar { display: flex; align-items: center; gap: 8px; height: 40px; }
@@ -113,6 +112,17 @@
             padding: 2px 6px; border-radius: 4px;
         }
         
+        /* Nearby Stations */
+        .nearby-container { grid-column: span 2; display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+        .nearby-header { font-size: 11px; color: var(--sub-text); font-weight: 700; }
+        .nearby-list { display: flex; gap: 6px; flex-wrap: wrap; }
+        .nearby-btn {
+            background: #2c2c2e; border: 1px solid var(--border); color: #fff;
+            padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+            cursor: pointer; display: flex; align-items: center; gap: 4px;
+        }
+        .nearby-btn:hover { background: #3a3a3c; }
+
         .wind-vis-container { background: var(--card-bg); border-radius: 8px; padding: 12px; margin-top: 12px; display: flex; gap: 15px; align-items: center; }
         .wind-controls { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; }
         .wind-stats { font-family: 'SF Mono', monospace; font-size: 13px; color: #fff; margin-top: 5px; }
@@ -220,6 +230,13 @@
 
         <div class="raw-text" id="rawMetar">Enter an airport code above.</div>
         <div class="metar-footer"><span id="mAge">--</span><span id="mSpread">Spread: --</span></div>
+        
+        <div id="nearbyContainer" class="nearby-container">
+            <div class="nearby-header">NEARBY STATIONS</div>
+            <div id="nearList" class="nearby-list">
+                <span style="color:#555; font-size:12px;">Loading nearby...</span>
+            </div>
+        </div>
     </div>
 
     <div id="tab-taf" class="view-section">
@@ -360,6 +377,7 @@
             
             const rawContainer = document.getElementById('rawMetar');
             rawContainer.innerHTML = 'Loading...';
+            document.getElementById('nearList').innerHTML = '<span style="color:#555;">Scanning...</span>';
 
             const headers = { 'Authorization': `Bearer ${AVWX_KEY}` };
             const cb = Date.now();
@@ -388,8 +406,9 @@
                     currentMetar = { temp: m.temperature?.value || 15, alt: altVal, altUnit: altUnit };
                     
                     renderMetar(m); 
-                    drawSkyViz(m); // <--- NEW SKY VISUALIZER
+                    drawSkyViz(m); 
                     setupRunwaySelect();
+                    findNearbyStations(stationData.latitude, stationData.longitude); // <--- RESTORED
                 } else {
                     throw new Error("No Weather Data");
                 }
@@ -418,11 +437,47 @@
             }
         }
 
-        // --- SKY VISUALIZATION (NEW) ---
+        // --- RESTORED: NEARBY ---
+        async function findNearbyStations(lat, lon) {
+            try {
+                const headers = { 'Authorization': `Bearer ${AVWX_KEY}` };
+                const url = `https://avwx.rest/api/station/near/${lat},${lon}?n=5`; 
+                const res = await fetch(url, { headers });
+                const data = await res.json();
+                
+                const list = document.getElementById('nearList');
+                list.innerHTML = "";
+                const currentIcao = document.getElementById('icao').value.toUpperCase();
+                
+                // Filter out current station
+                const others = data.filter(item => item.station.icao !== currentIcao).slice(0, 4);
+
+                if(others.length === 0) {
+                    list.innerHTML = "<span style='color:#555;'>No stations found nearby.</span>";
+                    return;
+                }
+
+                others.forEach(item => {
+                    const stn = item.station;
+                    const btn = document.createElement('div');
+                    btn.className = "nearby-btn";
+                    btn.innerHTML = `<span>✈</span><span>${stn.icao}</span><span style="color:var(--sub-text); font-size:10px;">${Math.round(item.nautical_miles)}nm</span>`;
+                    btn.onclick = () => {
+                        document.getElementById('icao').value = stn.icao;
+                        loadData(); 
+                    };
+                    list.appendChild(btn);
+                });
+            } catch(e) {
+                console.error("Nearby search failed", e);
+                document.getElementById('nearList').innerHTML = "<span style='color:var(--danger)'>Nearby search failed</span>";
+            }
+        }
+
+        // --- SKY VISUALIZATION (UPDATED) ---
         function drawSkyViz(m) {
             const canvas = document.getElementById('skyCanvas');
             const container = document.getElementById('skyContainer');
-            // Resize to fit container
             canvas.width = container.offsetWidth;
             canvas.height = container.offsetHeight;
             
@@ -430,7 +485,6 @@
             const w = canvas.width;
             const h = canvas.height;
             
-            // 1. Determine Flight Rules Color for Border
             const rule = m.flight_rules; 
             let borderColor = 'transparent';
             if(rule === 'VFR') borderColor = 'var(--success)';
@@ -438,27 +492,23 @@
             else if(rule === 'IFR') borderColor = 'var(--danger)';
             else if(rule === 'LIFR') borderColor = 'var(--lifr)';
             container.style.borderColor = borderColor;
-            container.style.boxShadow = `0 0 15px ${borderColor}44`; // Soft glow
+            container.style.boxShadow = `0 0 15px ${borderColor}44`; 
 
             ctx.clearRect(0,0,w,h);
 
-            // 2. Draw Background (Sky)
-            // Use current time to decide day/night gradient if we want, but keeping it "technical" is safer
-            // Let's use a standard "Pilot" gradient
+            // Sky Background
             const grad = ctx.createLinearGradient(0,0,0,h);
-            grad.addColorStop(0, '#0f172a'); // Space
-            grad.addColorStop(1, '#3b82f644'); // Horizon glow
+            grad.addColorStop(0, '#0f172a'); 
+            grad.addColorStop(1, '#3b82f644'); 
             ctx.fillStyle = grad;
             ctx.fillRect(0,0,w,h);
 
-            // 3. Draw Grid Lines (Altitudes)
+            // Grid Lines
             ctx.strokeStyle = 'rgba(255,255,255,0.1)';
             ctx.lineWidth = 1;
             ctx.font = '10px monospace';
             ctx.fillStyle = 'rgba(255,255,255,0.3)';
-            
-            const maxAlt = 120; // 12,000 ft (using hundreds)
-            // Map altitude to Y pixel. 0ft is at bottom (h), 12000ft is at top (0)
+            const maxAlt = 120; 
             const getY = (altHundreds) => h - ((altHundreds / maxAlt) * h);
 
             [30, 60, 90, 120].forEach(alt => {
@@ -467,84 +517,76 @@
                 ctx.fillText(`${alt}00`, w-35, y-2);
             });
 
-            // 4. Draw Clouds
+            // CLOUDS LOGIC UPDATED
             if(m.clouds) {
                 m.clouds.forEach(c => {
-                    const y = getY(c.altitude); // altitude is usually in hundreds e.g. 025
+                    const y = getY(c.altitude); 
                     const type = c.type;
+                    ctx.fillStyle = 'rgba(255,255,255,0.9)';
                     
-                    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-                    
-                    if(type === 'OVC' || type === 'BKN' || type === 'VV') {
-                        // Solid Layer
-                        const thickness = 15;
-                        // Draw "fluffy" base
-                        for(let i=0; i<w; i+=20) {
+                    // Logic based on Coverage (Oktas equivalent)
+                    if(type === 'OVC') {
+                        // Solid Block
+                        ctx.fillRect(0, y-15, w, 20);
+                        // Fluffy bottom
+                        for(let i=0; i<w; i+=15) {
+                            ctx.beginPath(); ctx.arc(i, y+5, 12, 0, Math.PI*2); ctx.fill();
+                        }
+                    } else if(type === 'BKN') {
+                        // Broken: Dense layer but with gaps
+                        // Draw many overlapping circles to create a heavy layer
+                        for(let i=0; i<w; i+=10) {
+                            // Skip random spots to create gaps
+                            if(Math.random() > 0.8) continue; 
                             ctx.beginPath();
-                            ctx.arc(i, y, 12, 0, Math.PI*2);
+                            ctx.arc(i, y, 15, 0, Math.PI*2);
                             ctx.fill();
                         }
-                        // Fill rectangular top to simulate thickness
-                        ctx.fillRect(0, y-thickness, w, thickness);
-                        
-                        // Label
-                        ctx.fillStyle = '#000';
-                        ctx.fillText(`${type}${c.altitude.toString().padStart(3,'0')}`, 10, y+4);
-                    } else if(type === 'FEW' || type === 'SCT') {
-                        // Scattered Puffs
-                        const count = type === 'FEW' ? 4 : 8;
-                        for(let k=0; k<count; k++) {
+                    } else if(type === 'SCT') {
+                        // Scattered: Moderate number of clouds (approx 15-20)
+                        for(let k=0; k<18; k++) {
                             const cx = Math.random() * w;
-                            const cy = y + (Math.random()*10 - 5);
+                            const cy = y + (Math.random()*15 - 7.5);
                             ctx.beginPath();
-                            ctx.arc(cx, cy, 10, 0, Math.PI*2);
-                            ctx.arc(cx+10, cy+2, 12, 0, Math.PI*2);
-                            ctx.arc(cx-10, cy+2, 12, 0, Math.PI*2);
+                            ctx.arc(cx, cy, 12, 0, Math.PI*2); // Main body
+                            ctx.arc(cx+8, cy+3, 10, 0, Math.PI*2);
                             ctx.fill();
                         }
-                        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-                        ctx.fillText(`${type}${c.altitude.toString().padStart(3,'0')}`, 10, y+4);
+                    } else if(type === 'FEW') {
+                        // Few: Very sparse (approx 5 small puffs)
+                        for(let k=0; k<5; k++) {
+                            const cx = Math.random() * w;
+                            const cy = y;
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, 8, 0, Math.PI*2);
+                            ctx.fill();
+                        }
                     }
+
+                    // Label
+                    ctx.fillStyle = (type==='OVC'||type==='BKN') ? '#000' : '#ccc';
+                    if(type==='SCT'||type==='FEW') ctx.fillStyle = '#fff';
+                    
+                    // Shadow for text readability if needed
+                    ctx.font = "bold 10px sans-serif";
+                    ctx.fillText(`${type}${c.altitude.toString().padStart(3,'0')}`, 10, y+4);
                 });
             } else {
-                // CLR or SKC
                 ctx.fillStyle = 'rgba(255,255,255,0.5)';
                 ctx.textAlign = 'center';
                 ctx.fillText("SKC / CLR", w/2, h/2);
             }
 
-            // 5. Visibility Overlay (Fog)
+            // Visibility Overlay
             if(m.visibility) {
                 const vis = m.visibility.value;
                 if(vis < 5) {
-                    const opacity = (5 - vis) / 5; // 0 vis = 1.0 opacity
+                    const opacity = (5 - vis) / 5; 
                     const fog = ctx.createLinearGradient(0,0,0,h);
                     fog.addColorStop(0, `rgba(200,200,200,${opacity * 0.2})`);
                     fog.addColorStop(1, `rgba(200,200,200,${opacity * 0.8})`);
                     ctx.fillStyle = fog;
                     ctx.fillRect(0,0,w,h);
-                }
-            }
-
-            // 6. Rain / Snow Animation (Static snapshot for now)
-            if(m.wx_codes) {
-                const wxStr = JSON.stringify(m.wx_codes);
-                if(wxStr.includes("RA") || wxStr.includes("DZ")) {
-                    ctx.strokeStyle = 'rgba(100,150,255,0.6)';
-                    ctx.lineWidth = 1;
-                    for(let i=0; i<50; i++) {
-                        const rx = Math.random() * w;
-                        const ry = Math.random() * h;
-                        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx-2, ry+10); ctx.stroke();
-                    }
-                }
-                if(wxStr.includes("SN")) {
-                    ctx.fillStyle = '#fff';
-                    for(let i=0; i<50; i++) {
-                        ctx.beginPath(); 
-                        ctx.arc(Math.random()*w, Math.random()*h, 1.5, 0, Math.PI*2); 
-                        ctx.fill();
-                    }
                 }
             }
         }
@@ -862,7 +904,6 @@
             document.getElementById('tab-'+name).classList.add('active');
             event.target.classList.add('active');
             if(name === 'metar') {
-                // Redraw canvas on tab switch because hidden canvas dimensions can break
                 const m = lastMetarObj;
                 if(m) setTimeout(() => drawSkyViz(m), 50);
             }
