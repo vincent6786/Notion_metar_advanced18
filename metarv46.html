@@ -748,7 +748,10 @@
                     const t = (iso) => new Date(iso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12:false});
                     document.getElementById('infoSun').innerText = `🌅 ${t(s.results.sunrise)}  🌇 ${t(s.results.sunset)}`;
                     stationSunTimes = { sunrise: new Date(s.results.sunrise), sunset: new Date(s.results.sunset) };
-                    updateTafSkyGradient();
+                    updateTafSkyGradient(
+                        new Date(tafDataCache[0].start_time.dt), 
+                        new Date(tafDataCache[tafDataCache.length-1].end_time.dt)
+                    );
                 }).catch(e=>{});
         }
 
@@ -882,7 +885,8 @@
                     axis.appendChild(lbl);
                 }
             });
-            updateTafSkyGradient(startT, endT);
+            // Update gradient now if sun times already loaded
+            if (stationSunTimes) updateTafSkyGradient(startT, endT);
         }
 
         function showTafDetail(index, color) {
@@ -904,10 +908,39 @@
             document.getElementById('tdCloud').innerText = cStr;
         }
 
+        // --- NEW: SMART SKY GRADIENT ---
         function updateTafSkyGradient(startT, endT) {
-            if(!stationSunTimes || !startT || !endT) return;
-            const cNight = "#0f172a"; const cDay = "#0ea5e9"; const cDawn = "#f97316";
-            let css = `linear-gradient(to right, ${cNight} 0%, ${cDawn} 20%, ${cDay} 30%, ${cDay} 70%, ${cDawn} 80%, ${cNight} 100%)`;
+            if (!stationSunTimes || !startT || !endT) return;
+            
+            const getDecHour = (d) => d.getUTCHours() + (d.getUTCMinutes() / 60);
+            const sr = getDecHour(stationSunTimes.sunrise);
+            const ss = getDecHour(stationSunTimes.sunset);
+            
+            const cNight = "#0f172a"; 
+            const cDay = "#0ea5e9"; 
+            const cDawn = "#f97316"; 
+            
+            const stops = [];
+            const totalDur = endT - startT;
+            let curr = new Date(startT);
+            
+            while (curr <= endT) {
+                const h = getDecHour(curr);
+                const pct = ((curr - startT) / totalDur) * 100;
+                
+                let isDay = (h >= sr && h < ss);
+                
+                const distSR = Math.abs(h - sr);
+                const distSS = Math.abs(h - ss);
+                
+                let color = isDay ? cDay : cNight;
+                if (distSR < 0.8 || distSS < 0.8) color = cDawn;
+                
+                stops.push(`${color} ${pct.toFixed(1)}%`);
+                curr.setMinutes(curr.getMinutes() + 30);
+            }
+            
+            const css = `linear-gradient(to right, ${stops.join(', ')})`;
             document.getElementById('tafSkyStrip').style.background = css;
         }
 
