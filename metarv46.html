@@ -46,7 +46,7 @@
                 background: linear-gradient(160deg, #1a1a2e 0%, #000000 100%);
                 background-attachment: fixed;
             }
-            .metar-card, .info-card, .freq-card, .clock-card, .search-box, .wind-vis-container, .taf-detail-card, .fr-bar-container, .atc-btn, .nearby-btn, .tabs, .sky-section, .meteogram-container {
+            .metar-card, .info-card, .freq-card, .clock-card, .search-box, .wind-vis-container, .taf-detail-card, .fr-bar-container, .atc-btn, .nearby-btn, .tabs, .sky-section, .meteogram-container, .quick-chip {
                 background: rgba(35, 35, 40, 0.65) !important;
                 backdrop-filter: blur(25px);
                 -webkit-backdrop-filter: blur(25px);
@@ -80,7 +80,8 @@
         }
         body.cockpit-dark .sky-section, body.cockpit-dark canvas, 
         body.cockpit-dark .icon-btn, body.cockpit-dark .fr-track-modern, 
-        body.cockpit-dark .taf-sky-strip, body.cockpit-dark .meteogram-container {
+        body.cockpit-dark .taf-sky-strip, body.cockpit-dark .meteogram-container, 
+        body.cockpit-dark .quick-chip {
             filter: grayscale(100%) sepia(100%) saturate(1000%) hue-rotate(-50deg) contrast(1.5);
         }
         body.cockpit-dark .badge-cat { color: #000 !important; background: #ff0000 !important; font-weight: 900; }
@@ -137,6 +138,17 @@
             margin-top: 6px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; 
             background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px; 
         }
+
+        /* --- QUICK SELECT --- */
+        .quick-select-row {
+            display: flex; gap: 8px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none;
+        }
+        .quick-chip {
+            background: var(--card-bg); border: 1px solid var(--border); color: var(--text);
+            padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer;
+            white-space: nowrap; transition: background 0.2s;
+        }
+        .quick-chip:active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
         /* --- METAR GRID & VISUALS --- */
         .metar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
@@ -271,6 +283,14 @@
         <a id="linkSkyVector" href="#" target="_blank" class="icon-btn" title="Charts">🗺️</a>
     </div>
 
+    <div class="quick-select-row">
+        <div class="quick-chip" onclick="quickLoad('RCTP')">RCTP</div>
+        <div class="quick-chip" onclick="quickLoad('RCSS')">RCSS</div>
+        <div class="quick-chip" onclick="quickLoad('KSFO')">KSFO</div>
+        <div class="quick-chip" onclick="quickLoad('KMHR')">KMHR</div>
+        <div class="quick-chip" onclick="quickLoad('RJAA')">RJAA</div>
+    </div>
+
     <div id="minBanner" class="hidden" style="padding: 8px; text-align: center; font-weight: 800; font-size: 14px; margin-bottom: 8px; border-radius: 6px; cursor: pointer; background: var(--danger);" onclick="setTab('tools')">
         ⚠️ NO-GO CHECK TOOLS
     </div>
@@ -353,13 +373,13 @@
             <div class="metar-card full-width"><div class="m-label">TEMP / DEWPOINT</div><div class="m-value"><span id="mTempC">--</span> <span id="mTempF" class="m-sub">--</span></div></div>
         </div>
 
-        <div class="raw-text" id="rawMetar">Enter an airport code above.</div>
+        <div class="raw-text" id="rawMetar">Select an airport above.</div>
         <div class="metar-footer"><span id="mAge">--</span><span id="mSpread">Spread: --</span></div>
         
         <div id="nearbyContainer" class="nearby-container">
             <div class="nearby-header">NEARBY STATIONS</div>
             <div id="nearList" class="nearby-list">
-                <span style="color:var(--sub-text); font-size:12px;">Loading nearby...</span>
+                <span style="color:var(--sub-text); font-size:12px;">--</span>
             </div>
         </div>
     </div>
@@ -371,7 +391,7 @@
         </div>
         <div class="meteogram-container">
             <canvas id="meteoCanvas" height="150"></canvas>
-            <div id="meteoLoading" class="sky-no-data" style="position:absolute; top:50%; left:0; right:0; text-align:center;">Loading Model Data...</div>
+            <div id="meteoLoading" class="sky-no-data" style="position:absolute; top:50%; left:0; right:0; text-align:center;">Select Airport</div>
         </div>
         <div style="display:flex; justify-content:space-between; color:var(--sub-text); font-size:12px; margin-bottom:8px; margin-top:20px; border-top:1px solid #333; padding-top:15px;">
             <span>Official Forecast Visualization</span><span id="tafIssued">--</span>
@@ -486,11 +506,13 @@
         let tafDataCache = null;
         let lastMetarObj = null; 
 
-        // Embedded Database
+        // UPDATED: Pre-defined list for World Clock (matches Quick Select)
         const AVIATION_CITIES = [
-            {n:"Taipei",z:"Asia/Taipei",icao:"RCTP",iata:"TPE"}, {n:"Tokyo Narita",z:"Asia/Tokyo",icao:"RJAA",iata:"NRT"}, 
-            {n:"New York JFK",z:"America/New_York",icao:"KJFK",iata:"JFK"}, {n:"London LHR",z:"Europe/London",icao:"EGLL",iata:"LHR"}, 
-            {n:"Los Angeles",z:"America/Los_Angeles",icao:"KLAX",iata:"LAX"}
+            {n:"Taipei (TPE)",z:"Asia/Taipei",icao:"RCTP"}, 
+            {n:"Songshan (TSA)",z:"Asia/Taipei",icao:"RCSS"}, 
+            {n:"San Francisco",z:"America/Los_Angeles",icao:"KSFO"}, 
+            {n:"Mather (MHR)",z:"America/Los_Angeles",icao:"KMHR"}, 
+            {n:"Narita (NRT)",z:"Asia/Tokyo",icao:"RJAA"}
         ];
         let cityList = [];
         const CLOUD_ICON_PATH = "M25 15C25 10.58 21.42 7 17 7C16.5 7 16 7.05 15.54 7.15C14.73 4.19 12.06 2 9 2C5.13 2 2 5.13 2 9C2 9.17 2 9.35 2.03 9.5C0.84 10.19 0 11.5 0 13C0 15.21 1.79 17 4 17H25C27.76 17 30 14.76 30 12C30 9.24 27.76 7 25 7V15Z";
@@ -500,24 +522,30 @@
             initWorldClock();
             checkNightModeSaved();
 
-            // FORCE CLEAR INPUTS ON START to prevent banner pop-up
+            // FORCE CLEAR INPUTS (Clean Slate)
             document.getElementById('minXW').value = "";
             document.getElementById('minCeil').value = "";
+            document.getElementById('icao').value = ""; // Ensure search is empty
 
-            loadData();
+            // Start Clock but DO NOT load data yet
             setInterval(updateClock, 1000);
+        }
+
+        // --- NEW: QUICK LOAD HANDLER ---
+        function quickLoad(code) {
+            document.getElementById('icao').value = code;
+            loadData();
         }
 
         // --- CORE DATA LOADING ---
         async function loadData() {
-            const inputEl = document.getElementById('icao');
-            if(!inputEl.value) inputEl.value = localStorage.getItem('efb_last_station') || 'RCTP';
+            const icaoVal = document.getElementById('icao').value;
+            if(!icaoVal) return;
             
-            const icao = inputEl.value.toUpperCase();
-            if(!icao) return;
+            const icao = icaoVal.toUpperCase();
             
-            localStorage.setItem('efb_last_station', icao);
-            inputEl.blur();
+            // UI Updates
+            document.getElementById('icao').blur();
             document.getElementById('linkSkyVector').href = `https://skyvector.com/airport/${icao}`;
             updateHeaderCat('Loading', '');
             
@@ -614,13 +642,13 @@
             }
         }
 
-        // --- NEW: HOURLY METEOGRAM (OPEN-METEO) ---
+        // --- UPDATED: ADVISORY METEOGRAM WITH BIGGER ARROWS ---
         async function fetchMeteogram(lat, lon) {
             const loader = document.getElementById('meteoLoading');
             loader.style.display = 'block';
             
             try {
-                // Fetch 24h forecast for: Temp, Dewpoint, WindSpeed, WindDir
+                // Fetch with wind_speed_unit=kn and wind_gusts
                 const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,dewpoint_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&wind_speed_unit=kn&forecast_days=1`;
                 const res = await fetch(url);
                 const data = await res.json();
@@ -637,7 +665,6 @@
             const cvs = document.getElementById('meteoCanvas');
             const ctx = cvs.getContext('2d');
             
-            // Fix scaling for retina screens
             const dpr = window.devicePixelRatio || 1;
             const rect = cvs.getBoundingClientRect();
             cvs.width = rect.width * dpr;
@@ -648,26 +675,21 @@
             const H = rect.height;
             const padding = {top: 40, bottom: 35, left: 15, right: 15};
             
-            // Clear
             ctx.clearRect(0,0,W,H);
             
-            // Use first 24 points
             const len = 24; 
             
-            // Helper: Map value to Y coordinate
-            // Temp Range: Find Min/Max to scale graph dynamically
             let minT = 100, maxT = -100;
             for(let i=0; i<len; i++) {
                 minT = Math.min(minT, h.temperature_2m[i], h.dewpoint_2m[i]);
                 maxT = Math.max(maxT, h.temperature_2m[i], h.dewpoint_2m[i]);
             }
-            minT -= 2; maxT += 2; // Padding
+            minT -= 2; maxT += 2;
             const rangeT = maxT - minT;
             
             const getX = (i) => padding.left + (i / (len-1)) * (W - padding.left - padding.right);
             const getY = (val) => H - padding.bottom - ((val - minT) / rangeT) * (H - padding.top - padding.bottom);
 
-            // Helper: Weather Icons
             function getWxIcon(code) {
                 if(code <= 1) return '☀️'; 
                 if(code <= 3) return '⛅'; 
@@ -680,8 +702,8 @@
                 return '☁️';
             }
 
-            // 1. DRAW VERTICAL GRID LINES (Visual Guide)
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            // 1. Vertical Grid
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
             ctx.lineWidth = 1;
             ctx.beginPath();
             for(let i=0; i<len; i+=3) {
@@ -691,7 +713,7 @@
             }
             ctx.stroke();
 
-            // 2. DRAW FOG RISK SHADING
+            // 2. Fog Risk Shading
             const stepX = (W - padding.left - padding.right) / (len - 1);
             for(let i=0; i<len-1; i++) {
                 const spread = h.temperature_2m[i] - h.dewpoint_2m[i];
@@ -705,13 +727,11 @@
                 ctx.lineTo(x + stepX, getY(h.dewpoint_2m[i+1]));
                 ctx.lineTo(x, yDew);
                 ctx.closePath();
-                
-                // Red if spread < 2°C (Fog Risk), else yellow tint
                 ctx.fillStyle = spread < 2.0 ? 'rgba(255, 69, 58, 0.25)' : 'rgba(255, 204, 0, 0.05)';
                 ctx.fill();
             }
 
-            // 3. DRAW TEMP & DEWPOINT LINES
+            // 3. Lines
             function drawLine(dataArr, color, width) {
                 ctx.beginPath();
                 ctx.strokeStyle = color;
@@ -724,53 +744,54 @@
                 }
                 ctx.stroke();
             }
-            
-            // Draw Dewpoint (Blue)
             drawLine(h.dewpoint_2m, '#0a84ff', 2);
-            // Draw Temp (Red)
             drawLine(h.temperature_2m, '#ff453a', 2);
 
-            // 4. DRAW ICONS, WIND & TIME
+            // 4. Data Points & BIGGER ARROWS
             ctx.textAlign = 'center';
-            
-            for(let i=0; i<len; i+=3) { // Every 3 hours
+            for(let i=0; i<len; i+=3) {
                 const x = getX(i);
                 
-                // A. Weather Icon (Top)
+                // Weather Icon
                 const wxCode = h.weather_code ? h.weather_code[i] : 3; 
                 ctx.font = '14px sans-serif';
+                ctx.fillStyle = '#fff';
                 ctx.fillText(getWxIcon(wxCode), x, padding.top - 15);
 
-                // B. Wind Arrow (Bottom)
+                // Wind Arrow & Speed
                 const windDir = h.wind_direction_10m[i];
                 const windSpd = Math.round(h.wind_speed_10m[i]);
                 const windGust = Math.round(h.wind_gusts_10m[i]);
                 
-                // Draw Arrow
+                // --- BIGGER ARROW LOGIC ---
                 ctx.save();
                 ctx.translate(x, H - 25);
                 ctx.rotate((windDir + 180) * Math.PI / 180); 
                 ctx.beginPath();
-                ctx.moveTo(0, -4); ctx.lineTo(-3, 3); ctx.lineTo(0, 0); ctx.lineTo(3, 3); ctx.closePath();
-                ctx.fillStyle = '#8e8e93';
+                // Increased size: (0,-8) instead of (0,-4)
+                ctx.moveTo(0, -8); 
+                ctx.lineTo(-5, 5); 
+                ctx.lineTo(0, 2); 
+                ctx.lineTo(5, 5); 
+                ctx.closePath();
+                ctx.fillStyle = '#0a84ff'; // Cyan/Blue for better visibility
                 ctx.fill();
                 ctx.restore();
                 
-                // Draw Speed Text (e.g., "12" or "12G20")
-                ctx.font = '10px "SF Mono", monospace';
+                // Speed Text
+                ctx.font = '700 11px "SF Mono", monospace';
                 ctx.fillStyle = '#fff';
                 let spdText = `${windSpd}`;
-                // Only show Gust if it's notably higher (+5kt)
                 if (windGust > windSpd + 5) {
                     spdText += `G${windGust}`;
-                    ctx.fillStyle = '#ff9f0a'; // Orange text for gusts
+                    ctx.fillStyle = '#ff9f0a';
                 }
-                ctx.fillText(spdText, x, H - 14);
+                ctx.fillText(spdText, x, H - 10); // Moved slightly down
                 
-                // C. Time Label (Z)
-                ctx.fillStyle = '#555';
-                ctx.font = '9px sans-serif';
-                ctx.fillText(`${i}z`, x, H - 2);
+                // Time
+                ctx.fillStyle = '#666';
+                ctx.font = '10px sans-serif';
+                ctx.fillText(`${i}z`, x, H);
             }
         }
 
