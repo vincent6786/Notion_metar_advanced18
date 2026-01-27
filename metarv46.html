@@ -632,92 +632,139 @@
             }
         }
 
-        function drawMeteogram(h) {
-            const cvs = document.getElementById('meteoCanvas');
-            const ctx = cvs.getContext('2d');
-            
-            // Fix scaling for retina screens
-            const dpr = window.devicePixelRatio || 1;
-            const rect = cvs.getBoundingClientRect();
-            cvs.width = rect.width * dpr;
-            cvs.height = rect.height * dpr;
-            ctx.scale(dpr, dpr);
-            
-            const W = rect.width;
-            const H = rect.height;
-            const padding = {top: 20, bottom: 30, left: 10, right: 10};
-            
-            // Clear
-            ctx.clearRect(0,0,W,H);
-            
-            // Use first 24 points
-            const len = 24; 
-            
-            // Helper: Map value to Y coordinate
-            // Temp Range: Find Min/Max to scale graph dynamically
-            let minT = 100, maxT = -100;
-            for(let i=0; i<len; i++) {
-                minT = Math.min(minT, h.temperature_2m[i], h.dewpoint_2m[i]);
-                maxT = Math.max(maxT, h.temperature_2m[i], h.dewpoint_2m[i]);
-            }
-            minT -= 2; maxT += 2; // Padding
-            const rangeT = maxT - minT;
-            
-            const getX = (i) => padding.left + (i / (len-1)) * (W - padding.left - padding.right);
-            const getY = (val) => H - padding.bottom - ((val - minT) / rangeT) * (H - padding.top - padding.bottom);
-
-            // 1. DRAW TEMP & DEWPOINT LINES
-            function drawLine(dataArr, color, width) {
-                ctx.beginPath();
-                ctx.strokeStyle = color;
-                ctx.lineWidth = width;
+            // --- UPDATED: VISUAL METEOGRAM WITH ICONS & ALERTS ---
+            function drawMeteogram(h) {
+                const cvs = document.getElementById('meteoCanvas');
+                const ctx = cvs.getContext('2d');
+                
+                // 1. Setup Canvas Resolution (Retina/High-DPI fix)
+                const dpr = window.devicePixelRatio || 1;
+                const rect = cvs.getBoundingClientRect();
+                cvs.width = rect.width * dpr;
+                cvs.height = rect.height * dpr;
+                ctx.scale(dpr, dpr);
+                
+                const W = rect.width;
+                const H = rect.height;
+                // Increased top padding to make room for Weather Icons
+                const padding = {top: 40, bottom: 30, left: 15, right: 15};
+                
+                // Clear
+                ctx.clearRect(0,0,W,H);
+                
+                // Use first 24 hours
+                const len = 24; 
+                
+                // 2. Determine Scale (Min/Max Temp)
+                let minT = 100, maxT = -100;
                 for(let i=0; i<len; i++) {
-                    const x = getX(i);
-                    const y = getY(dataArr[i]);
-                    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                    minT = Math.min(minT, h.temperature_2m[i], h.dewpoint_2m[i]);
+                    maxT = Math.max(maxT, h.temperature_2m[i], h.dewpoint_2m[i]);
                 }
-                ctx.stroke();
+                minT -= 2; maxT += 2; // Add breathing room
+                const rangeT = maxT - minT;
+                
+                const getX = (i) => padding.left + (i / (len-1)) * (W - padding.left - padding.right);
+                const getY = (val) => H - padding.bottom - ((val - minT) / rangeT) * (H - padding.top - padding.bottom);
+            
+                // --- HELPER: WEATHER CODE TO ICON ---
+                // WMO Weather interpretation codes (WW)
+                function getWxIcon(code) {
+                    if(code <= 1) return '☀️'; // Clear
+                    if(code <= 3) return '⛅'; // Partly Cloudy
+                    if(code <= 48) return '🌫️'; // Fog
+                    if(code <= 57) return '🌧️'; // Drizzle
+                    if(code <= 67) return '☔'; // Rain
+                    if(code <= 77) return '❄️'; // Snow
+                    if(code <= 82) return '⛈️'; // Showers
+                    if(code <= 99) return '⚡'; // Thunderstorm
+                    return '☁️';
+                }
+            
+                // 3. DRAW DYNAMIC FOG FILL (The "Danger Zone")
+                // We draw thin rectangles for every hour. If spread < 2°C, we paint it Red.
+                const stepX = (W - padding.left - padding.right) / (len - 1);
+                
+                for(let i=0; i<len-1; i++) {
+                    const spread = h.temperature_2m[i] - h.dewpoint_2m[i];
+                    const x = getX(i);
+                    const yTemp = getY(h.temperature_2m[i]);
+                    const yDew = getY(h.dewpoint_2m[i]);
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(x, yTemp);
+                    ctx.lineTo(x + stepX, getY(h.temperature_2m[i+1]));
+                    ctx.lineTo(x + stepX, getY(h.dewpoint_2m[i+1]));
+                    ctx.lineTo(x, yDew);
+                    ctx.closePath();
+                    
+                    // LOGIC: If spread is tight (< 2.5 deg), make it RED (Danger). Else Yellow (Caution)
+                    if (spread < 2.5) {
+                        ctx.fillStyle = 'rgba(255, 69, 58, 0.3)'; // Red Alert
+                    } else {
+                        ctx.fillStyle = 'rgba(255, 204, 0, 0.1)'; // Slight Yellow
+                    }
+                    ctx.fill();
+                }
+            
+                // 4. DRAW LINES
+                function drawLine(dataArr, color, width) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = width;
+                    ctx.lineJoin = 'round';
+                    for(let i=0; i<len; i++) {
+                        const x = getX(i);
+                        const y = getY(dataArr[i]);
+                        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                    }
+                    ctx.stroke();
+                }
+                
+                // Draw Dewpoint (Blue)
+                drawLine(h.dewpoint_2m, '#0a84ff', 2);
+                // Draw Temp (Red)
+                drawLine(h.temperature_2m, '#ff453a', 2);
+            
+                // 5. DRAW ICONS, WIND & TIME
+                ctx.textAlign = 'center';
+                
+                for(let i=0; i<len; i+=3) { // Every 3 hours
+                    const x = getX(i);
+                    
+                    // A. Weather Icon (Top)
+                    // Check Open-Meteo "weather_code" (need to ensure this was fetched in URL!)
+                    // Note: You need to update your fetch URL to include "&hourly=...weathercode"
+                    // If not fetched, this defaults to clouds.
+                    const wxCode = h.weather_code ? h.weather_code[i] : 3; 
+                    ctx.font = '14px sans-serif';
+                    ctx.fillText(getWxIcon(wxCode), x, padding.top - 20);
+            
+                    // B. Wind Arrow (Bottom)
+                    const windDir = h.wind_direction_10m[i];
+                    const windSpd = Math.round(h.wind_speed_10m[i]);
+                    
+                    // Draw speed number
+                    ctx.font = '10px "SF Mono", monospace';
+                    ctx.fillStyle = '#8e8e93';
+                    ctx.fillText(windSpd, x, H - 22);
+                    
+                    // Draw Arrow
+                    ctx.save();
+                    ctx.translate(x, H - 12);
+                    ctx.rotate((windDir + 180) * Math.PI / 180); 
+                    ctx.beginPath();
+                    ctx.moveTo(0, -4); ctx.lineTo(-3, 3); ctx.lineTo(0, 0); ctx.lineTo(3, 3); ctx.closePath();
+                    ctx.fillStyle = '#fff';
+                    ctx.fill();
+                    ctx.restore();
+                    
+                    // C. Time Label (Very Bottom)
+                    ctx.fillStyle = '#555';
+                    ctx.font = '9px sans-serif';
+                    ctx.fillText(`${i}z`, x, H - 2);
+                }
             }
-            
-            // Draw Dewpoint (Blue)
-            drawLine(h.dewpoint_2m, '#0a84ff', 2);
-            // Draw Temp (Red)
-            drawLine(h.temperature_2m, '#ff453a', 2);
-            
-            // 2. DRAW SPREAD FILL (Visual Fog Risk)
-            ctx.globalAlpha = 0.1;
-            ctx.fillStyle = '#ffcc00'; // Yellowish fill
-            ctx.beginPath();
-            for(let i=0; i<len; i++) ctx.lineTo(getX(i), getY(h.temperature_2m[i]));
-            for(let i=len-1; i>=0; i--) ctx.lineTo(getX(i), getY(h.dewpoint_2m[i]));
-            ctx.fill();
-            ctx.globalAlpha = 1.0;
-
-            // 3. DRAW WIND ARROWS & TIME
-            ctx.textAlign = 'center';
-            ctx.font = '10px sans-serif';
-            ctx.fillStyle = '#8e8e93';
-            
-            for(let i=0; i<len; i+=3) { // Every 3 hours
-                const x = getX(i);
-                const windDir = h.wind_direction_10m[i];
-                
-                // Time Label
-                ctx.fillText(`${i}z`, x, H - 5);
-                
-                // Wind Arrow
-                ctx.save();
-                ctx.translate(x, H - 20);
-                ctx.rotate((windDir + 180) * Math.PI / 180); // Point WITH wind
-                
-                // Arrow Path
-                ctx.beginPath();
-                ctx.moveTo(0, -5); ctx.lineTo(-3, 3); ctx.lineTo(0, 0); ctx.lineTo(3, 3); ctx.closePath();
-                ctx.fillStyle = '#fff';
-                ctx.fill();
-                ctx.restore();
-            }
-        }
 
         // --- RENDERERS ---
         function renderMetar(d) {
