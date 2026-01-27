@@ -424,11 +424,11 @@
             <div class="conv-row">
                 <div style="flex:1">
                     <div class="conv-lbl">Max X-Wind (kt)</div>
-                    <input type="number" id="minXW" class="conv-inp" placeholder="e.g. 15" oninput="checkMins()">
+                    <input type="number" id="minXW" class="conv-inp" placeholder="e.g. 15" oninput="checkMins()" autocomplete="off">
                 </div>
                 <div style="flex:1">
                     <div class="conv-lbl">Min Ceiling (ft)</div>
-                    <input type="number" id="minCeil" class="conv-inp" placeholder="e.g. 1000" oninput="checkMins()">
+                    <input type="number" id="minCeil" class="conv-inp" placeholder="e.g. 1000" oninput="checkMins()" autocomplete="off">
                 </div>
             </div>
             <div id="minsResult" style="margin-top:10px; font-weight:800; font-size:18px; text-align:center; padding:10px; border-radius:6px; background:#333; color:#aaa;">SET LIMITS</div>
@@ -477,11 +477,10 @@
             initWorldClock();
             checkNightModeSaved();
 
-            // UPDATED: Only load if saved, do NOT force defaults
-            const savedXW = localStorage.getItem('efb_min_xw');
-            const savedCeil = localStorage.getItem('efb_min_ceil');
-            if (savedXW) document.getElementById('minXW').value = savedXW;
-            if (savedCeil) document.getElementById('minCeil').value = savedCeil;
+            // CRITICAL FIX: FORCE CLEAR INPUTS ON START
+            // This prevents "stuck" values from previous sessions causing the banner to show immediately.
+            document.getElementById('minXW').value = "";
+            document.getElementById('minCeil').value = "";
 
             loadData();
             setInterval(updateClock, 1000);
