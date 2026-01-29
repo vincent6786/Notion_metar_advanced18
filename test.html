@@ -440,14 +440,18 @@
     </div>
     
     <div id="tab-atc" class="view-section">
-        <div class="info-card" style="margin-bottom: 20px;" id="audioContainer">
-             <div class="ic-lbl" style="margin-bottom:8px;" id="audioLabel">AUDIO / ATIS</div>
-             <div id="audioPlayerTarget"></div>
+        <div class="info-card" style="margin-bottom: 20px;">
+             <div class="ic-lbl" style="margin-bottom:8px;" id="audioLabel">AUDIO STREAMS</div>
+             <div id="audioPlayerTarget">
+                 <div style="color:var(--sub-text); font-style:italic; padding:10px; text-align:center;">
+                     Select an airport to check for streams.
+                 </div>
+             </div>
         </div>
         <div class="section-title">EXTERNAL RESOURCES</div>
         <a href="https://metar-taf.com/" target="_blank" class="atc-btn"><span>☁️ Metar-Taf.com</span><span>↗</span></a>
         <a href="https://beta.twatc.net/" target="_blank" class="atc-btn"><span>🇹🇼 Taiwan Virtual ATC</span><span>↗</span></a>
-        <a href="https://www.liveatc.net/" target="_blank" class="atc-btn"><span>📡 LiveATC.net</span><span>↗</span></a>
+        <a id="btnLiveAtc" href="https://www.liveatc.net/" target="_blank" class="atc-btn"><span>📡 LiveATC.net</span><span>↗</span></a>
     </div>
 
     <div id="tab-world" class="view-section">
@@ -648,6 +652,9 @@
                     renderFlightRuleBar(m); 
                     setupRunwaySelect();
                     findNearbyStations(stationData.latitude, stationData.longitude); 
+                    
+                    // --- ATC AUDIO UPDATE ---
+                    updateAudioSection(icao);
                 } else {
                     throw new Error("No Weather Data");
                 }
@@ -679,16 +686,6 @@
                     }
                 }
 
-                // Audio Setup
-                const audioTarget = document.getElementById('audioPlayerTarget');
-                if(icao.startsWith('RC')) {
-                    document.getElementById('audioLabel').innerText = `${icao} ATIS (TWATC)`;
-                    audioTarget.innerHTML = `<audio controls style="width: 100%; height: 32px; filter: invert(0.9);"><source src="https://stream.twatc.net/${icao}_ATIS" type="audio/mpeg"></audio>`;
-                } else {
-                    document.getElementById('audioLabel').innerText = "External Audio";
-                    audioTarget.innerHTML = `<a href="https://www.liveatc.net/search/?q=${icao}" target="_blank" class="tool-btn" style="text-align:center; display:block; text-decoration:none;">📡 Search LiveATC</a>`;
-                }
-
             } catch(e) {
                 console.error(e);
                 updateHeaderCat('N/A', 'cat-ifr');
@@ -700,6 +697,50 @@
                             <span>View on Metar-Taf.com ↗</span>
                         </a>
                     </div>`;
+            }
+        }
+
+        function updateAudioSection(icao) {
+            const container = document.getElementById('audioPlayerTarget');
+            const label = document.getElementById('audioLabel');
+            const liveAtcBtn = document.getElementById('btnLiveAtc');
+
+            // 1. Update the LiveATC Button Link dynamically
+            if (liveAtcBtn) {
+                liveAtcBtn.href = `https://www.liveatc.net/search/?icao=${icao}`;
+                liveAtcBtn.innerHTML = `<span>📡 LiveATC (${icao})</span><span>↗</span>`;
+            }
+
+            // 2. Handle Specific Streams (RCTP)
+            if (icao === 'RCTP') {
+                label.innerText = "RCTP LIVE STREAMS (TWATC)";
+                container.innerHTML = `
+                    <div style="margin-bottom:12px;">
+                        <div class="m-label" style="color:var(--accent);">ATIS (127.6)</div>
+                        <audio controls style="width: 100%; height: 32px; border-radius:16px;">
+                            <source src="https://stream.twatc.net/RCTP_ATIS" type="audio/mpeg">
+                            Your browser does not support the audio element.
+                        </audio>
+                    </div>
+                    <div>
+                        <div class="m-label" style="color:var(--success);">ATC SCANNER (GND/TWR/APP)</div>
+                        <audio controls style="width: 100%; height: 32px; border-radius:16px;">
+                            <source src="https://stream.twatc.net/RCTP_Scan2" type="audio/mpeg">
+                            Your browser does not support the audio element.
+                        </audio>
+                    </div>
+                    <div style="font-size:10px; color:#555; margin-top:8px; text-align:right;">Source: TWATC.net</div>
+                `;
+            } 
+            else {
+                // Default View for other airports
+                label.innerText = "AUDIO STREAMS";
+                container.innerHTML = `
+                    <div style="color:var(--sub-text); font-size:13px; text-align:center; padding:10px 0;">
+                        No direct in-app stream available for ${icao}.<br>
+                        <span style="font-size:11px; color:#555;">Use the LiveATC button below to search external feeds.</span>
+                    </div>
+                `;
             }
         }
 
