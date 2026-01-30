@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
     <title>METAR PLUS Pro</title>
-    <meta name="apple-mobile-web-app-title" content="METAR PLUS">
+    <meta name="apple-mobile-web-app-title" content="METAR GO">
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/vincent6786/Notion_metar_advanced/main/app-icon.png">
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/vincent6786/Notion_metar_advanced/main/app-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -142,6 +142,7 @@
         /* --- QUICK SELECT --- */
         .quick-select-row {
             display: flex; gap: 8px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none;
+            min-height: 32px; /* Prevent collapse when empty */
         }
         .quick-chip {
             background: var(--card-bg); border: 1px solid var(--border); color: var(--text);
@@ -274,6 +275,7 @@
                        autocorrect="off" 
                        spellcheck="false">
                 <span id="clearBtn" class="clear-btn" onclick="clearSearch()">✖</span>
+                <button class="icon-btn" onclick="locateUser()" title="Near Me (GPS)" style="border:none; background:transparent; width:30px; font-size:16px;">📍</button>
             </div>
         </div>
         <button class="icon-btn" onclick="loadData()" title="Force Refresh">↻</button>
@@ -283,13 +285,8 @@
         <a id="linkSkyVector" href="#" target="_blank" class="icon-btn" title="Charts">🗺️</a>
     </div>
 
-    <div class="quick-select-row">
-        <div class="quick-chip" onclick="quickLoad('RCTP')">RCTP</div>
-        <div class="quick-chip" onclick="quickLoad('RCSS')">RCSS</div>
-        <div class="quick-chip" onclick="quickLoad('KSFO')">KSFO</div>
-        <div class="quick-chip" onclick="quickLoad('KMHR')">KMHR</div>
-        <div class="quick-chip" onclick="quickLoad('RJAA')">RJAA</div>
-    </div>
+    <div class="quick-select-row" id="recentHistoryRow">
+        </div>
 
     <div id="minBanner" class="hidden" style="padding: 8px; text-align: center; font-weight: 800; font-size: 14px; margin-bottom: 8px; border-radius: 6px; cursor: pointer; background: var(--danger);" onclick="setTab('tools')">
         ⚠️ NO-GO CHECK TOOLS
@@ -388,7 +385,7 @@
     <div id="tab-taf" class="view-section">
         <div style="display:flex; justify-content:space-between; align-items:center; color:var(--sub-text); font-size:12px; margin-bottom:8px;">
             <span>24H Trend (Open-Meteo)</span>
-            <span style="background:var(--warn); color:#000; padding:2px 6px; border-radius:4px; font-weight:800; font-size:10px;">⚠️ ADVISORY</span>
+            <span style="background:var(--warn); color:#000; padding:2px 6px; border-radius:4px; font-weight:800; font-size:10px;">⚠️ ADVISORY only</span>
         </div>
         <div class="meteogram-container">
             <canvas id="meteoCanvas" height="150"></canvas>
@@ -550,6 +547,7 @@
         function initApp() {
             initWorldClock();
             checkNightModeSaved();
+            renderHistory(); // Init Recent History
 
             // Load Default Station Preference
             const savedDefault = localStorage.getItem('efb_default_station');
@@ -603,13 +601,92 @@
             }
         }
 
+        // --- NEW: DYNAMIC HISTORY ---
+        function renderHistory() {
+            const history = JSON.parse(localStorage.getItem('efb_history')) || [];
+            const container = document.getElementById('recentHistoryRow');
+            container.innerHTML = '';
+            
+            if (history.length === 0) {
+                // Fallback to default recommended airports if empty
+                const defaults = ['RCTP', 'RCSS', 'KSFO', 'RJAA'];
+                defaults.forEach(d => {
+                     const chip = document.createElement('div');
+                     chip.className = 'quick-chip';
+                     chip.innerText = d;
+                     chip.onclick = () => quickLoad(d);
+                     container.appendChild(chip);
+                });
+                return;
+            }
+
+            history.forEach(icao => {
+                const chip = document.createElement('div');
+                chip.className = 'quick-chip';
+                chip.innerText = icao;
+                chip.onclick = () => quickLoad(icao);
+                container.appendChild(chip);
+            });
+        }
+
+        function addToHistory(icao) {
+            let history = JSON.parse(localStorage.getItem('efb_history')) || [];
+            history = history.filter(item => item !== icao); // Remove dupe
+            history.unshift(icao); // Add to top
+            if (history.length > 5) history.pop(); // Keep max 5
+            localStorage.setItem('efb_history', JSON.stringify(history));
+            renderHistory();
+        }
+
+        // --- NEW: GPS LOCATE ---
+        function locateUser() {
+            const btn = document.querySelector('.search-box button');
+            const originalIcon = '📍';
+            btn.innerHTML = '⏳'; 
+            
+            if (!navigator.geolocation) {
+                alert("Geolocation not supported");
+                btn.innerHTML = originalIcon;
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                
+                try {
+                    const headers = { 'Authorization': `Bearer ${AVWX_KEY}` };
+                    const res = await fetch(`https://avwx.rest/api/station/near/${lat},${lon}?n=1`, { headers });
+                    const data = await res.json();
+                    
+                    if (data.length > 0) {
+                        const nearest = data[0].station.icao;
+                        document.getElementById('icao').value = nearest;
+                        loadData();
+                    } else {
+                        alert("No aviation stations found nearby.");
+                    }
+                } catch(e) {
+                    console.error(e);
+                    alert("Error finding station via GPS.");
+                } finally {
+                     btn.innerHTML = originalIcon;
+                }
+            }, (err) => {
+                console.error(err);
+                alert("GPS permission denied or unavailable.");
+                btn.innerHTML = originalIcon;
+            });
+        }
+
         // --- CORE DATA LOADING ---
         async function loadData() {
             const icaoVal = document.getElementById('icao').value;
             if(!icaoVal) return;
             
             const icao = icaoVal.toUpperCase();
-            
+            addToHistory(icao); // Save to history
+
             // UI Updates
             document.getElementById('icao').blur();
             document.getElementById('linkSkyVector').href = `https://skyvector.com/airport/${icao}`;
@@ -662,26 +739,47 @@
 
                 if(tafRes.status === 'fulfilled') renderTaf(tafRes.value);
                 
+                // --- INTELLIGENT NOTAM SORTING ---
                 if(notamRes.status === 'fulfilled') {
                     const n = notamRes.value;
                     const notamContainer = document.getElementById('notamList');
+                    
                     if (Array.isArray(n) && n.length > 0) {
-                        n.sort((a, b) => {
-                            const crit = /CLSD|CLOSED|U\/S|UNSERVICEABLE/;
-                            return crit.test(b.raw) - crit.test(a.raw); 
+                        // Buckets
+                        const critical = [];
+                        const warning = [];
+                        const info = [];
+
+                        n.forEach(x => {
+                            const raw = x.raw;
+                            // Check keywords
+                            if (/(CLSD|CLOSED|U\/S|UNSERVICEABLE|FAIL)/.test(raw)) {
+                                critical.push(x);
+                            } else if (/(OBST|WORK|WIP|TRIGGER|SNOW|ICE|DANGER)/.test(raw)) {
+                                warning.push(x);
+                            } else {
+                                info.push(x);
+                            }
                         });
 
-                        notamContainer.innerHTML = n.map(x => {
-                            const raw = x.raw;
-                            let borderCol = 'rgba(255,255,255,0.1)';
-                            if (/(CLSD|CLOSED|U\/S)/.test(raw)) borderCol = 'var(--danger)';
-                            else if (/(OBST|WORK|WIP)/.test(raw)) borderCol = 'var(--warn)';
-                            
-                            return `<div style="margin-bottom:8px; border-left:4px solid ${borderCol}; background: rgba(255,255,255,0.03); padding: 8px; border-radius: 0 4px 4px 0;">
-                                <div style="font-size:10px; color:#888; margin-bottom:2px;">${x.start_time?.dt ? new Date(x.start_time.dt).toLocaleDateString() : ''} - ${x.end_time?.dt ? new Date(x.end_time.dt).toLocaleDateString() : 'PERM'}</div>
-                                ${formatNotamText(raw)}
-                            </div>`;
-                        }).join('');
+                        const renderGroup = (list, title, color) => {
+                            if(list.length === 0) return '';
+                            return `
+                                <div style="color:${color}; font-weight:800; margin:14px 0 4px 0; font-size:11px; text-transform:uppercase;">${title} (${list.length})</div>
+                                ${list.map(x => `
+                                    <div style="margin-bottom:6px; border-left:3px solid ${color}; background:rgba(255,255,255,0.03); padding:6px; font-size:11px; font-family:'SF Mono', monospace;">
+                                        <div style="color:#666; font-size:9px; margin-bottom:2px;">${x.start_time?.dt ? new Date(x.start_time.dt).toLocaleDateString() : ''}</div>
+                                        ${formatNotamText(x.raw)}
+                                    </div>
+                                `).join('')}
+                            `;
+                        };
+
+                        notamContainer.innerHTML = 
+                            renderGroup(critical, '⛔ CRITICAL', '#ff453a') +
+                            renderGroup(warning, '⚠️ CAUTION', '#ff9f0a') +
+                            renderGroup(info, 'ℹ️ INFO', '#8e8e93');
+
                     } else {
                         notamContainer.innerHTML = "No NOTAMs Found";
                     }
@@ -1072,9 +1170,9 @@
             fContainer.innerHTML = '';
             if(d.frequencies && d.frequencies.length > 0) {
                  d.frequencies.slice(0, 6).forEach(f => {
-                     const card = document.createElement('div'); card.className = 'freq-card';
-                     card.innerHTML = `<div class="freq-type">${f.type}</div><div class="freq-val">${f.frequency}</div>`;
-                     fContainer.appendChild(card);
+                      const card = document.createElement('div'); card.className = 'freq-card';
+                      card.innerHTML = `<div class="freq-type">${f.type}</div><div class="freq-val">${f.frequency}</div>`;
+                      fContainer.appendChild(card);
                  });
             }
 
@@ -1385,7 +1483,6 @@
             document.getElementById('tab-'+name).classList.add('active');
             
             // Find the button that was clicked and make it active
-            // (We iterate to find the one with the matching onclick)
             const tabs = document.querySelectorAll('.tab');
             tabs.forEach(t => {
                 if(t.getAttribute('onclick').includes(name)) t.classList.add('active');
@@ -1395,7 +1492,6 @@
             if(name === 'world') updateClock();
         
             // --- FIX FOR TAF CHART ---
-            // If opening TAF tab and we have data, wait 50ms for the div to become visible, then redraw
             if(name === 'taf' && meteoDataCache) {
                 setTimeout(() => {
                     drawMeteogram(meteoDataCache);
