@@ -1,7 +1,7 @@
 ✈️ METAR Go
 A lightweight, pilot-focused Electronic Flight Bag (EFB) web application.
 
-METAR PLUS Pro is a single-file web tool designed for student pilots and aviation enthusiasts. It provides instant access to real-time aviation weather, runway analysis, and flight planning tools in a "Cockpit Night Mode" friendly interface.
+METAR Go is a single-file web tool designed for student pilots and aviation enthusiasts. It provides instant access to real-time aviation weather, runway analysis, and flight planning tools in a "Cockpit Night Mode" friendly interface.
 
 🌟 Key Features
 Real-Time Weather: Decodes and displays raw METAR & TAF data from AVWX.
