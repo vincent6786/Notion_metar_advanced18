@@ -1682,90 +1682,74 @@
                 const btn = document.getElementById('btnFetchLive');
                 const panel = document.getElementById('liveAwosPanel');
                 
-                // UI Loading State
-                btn.innerHTML = "⏳ Scanning Signal...";
-                btn.style.opacity = "0.7";
+                btn.innerHTML = "⏳ Downloading Text Feed...";
                 btn.disabled = true;
             
-                // We use a proxy to get the raw HTML text
+                // 1. CHANGE TARGET: We now aim for the "text.php" version
+                // This page has the data baked in!
                 const proxyUrl = 'https://api.allorigins.win/get?url=';
-                // CAUTION: Sometimes data is in 'default.htm' or 'index.html'
-                const targetUrl = encodeURIComponent('http://kmhr.awosnet.com/');
+                const targetUrl = encodeURIComponent('http://kmhr.awosnet.com/text.php'); 
                 const cb = Date.now();
             
                 try {
                     const response = await fetch(`${proxyUrl}${targetUrl}&t=${cb}`);
                     const data = await response.json();
             
-                    if (!data.contents) throw new Error("No signal received");
-            
-                    const rawHtml = data.contents;
-            
-                    // --- DEBUG: Uncomment this to see the raw HTML in your browser console ---
-                    // console.log("RAW AWOS DATA:", rawHtml);
-            
-                    // 1. Check for FRAMESET (Old websites often hide data inside a frame)
-                    if (rawHtml.toLowerCase().includes('<frameset')) {
-                        alert("⚠️ KMHR uses Frames. Trying to fetch sub-frame...");
-                        // If it uses frames, we recursively try to fetch the likely data frame
-                        // Common names: 'awos.html', 'data.htm', 'current.htm'
-                        // For now, let's just warn.
-                        throw new Error("Site uses Frameset - Cannot scrape main index.");
-                    }
-            
-                    // 2. FUZZY REGEX SCRAPER (Robust)
-                    // This looks for the Label + any characters + the Value
-                    // It ignores HTML tags like <td> or <font> in between
+                    if (!data.contents) throw new Error("No data received");
                     
+                    // The text version usually looks like a simple list or table.
+                    // We will stick to the "Fuzzy Search" because it works on both HTML and Text.
+                    const rawText = data.contents;
+                    
+                    // --- DEBUG: Check the console to see what the text version looks like ---
+                    console.log("AWOS TEXT DATA:", rawText);
+            
+                    // 2. SCRAPER UTILITY
+                    // Searches for "Label" ... then grabs the next chunk of text/numbers
                     const extract = (pattern) => {
-                        // Regex explanation: 
-                        // label found, followed by non-digit chars (tags/spaces), capturing the value
+                        // Case-insensitive, looks for label, skips junk chars, captures the value
                         const regex = new RegExp(pattern + "[^0-9a-zA-Z\\-]*([0-9a-zA-Z\\.\\/\\-]+)", "i");
-                        const match = rawHtml.match(regex);
+                        const match = rawText.match(regex);
                         return match ? match[1] : "N/A";
                     };
             
-                    // Define patterns specific to AWOSNet layouts
-                    // They often look like: "Wind Speed ... 5" or "Vis ... 10"
+                    // 3. EXTRACT DATA
+                    // Note: Labels in text.php might be slightly different. 
+                    // We try a few common variations.
                     let wDir = extract("Wind Direction");
-                    let wSpd = extract("Wind Speed");
-                    let vis  = extract("Visibility");
-                    let sky  = extract("Sky Cond"); 
-                    let temp = extract("Temp"); 
-                    let updated = extract("Updated");
+                    if (wDir === "N/A") wDir = extract("Average Wind"); // Fallback label
             
-                    // Fallbacks if "Wind Direction" failed (sometimes just "Wind")
-                    if (wDir === "N/A") wDir = extract("Wind");
-                    
-                    // 3. Update the UI
+                    let wSpd = extract("Wind Speed");
+                    if (wSpd === "N/A") wSpd = extract("Average Wind.*@"); // Try to grab speed after '@'
+            
+                    let vis = extract("Visibility");
+                    let sky = extract("Sky Cond"); 
+                    if (sky === "N/A") sky = extract("Sky");
+            
+                    let temp = extract("Temp"); 
+                    let updated = extract("Updated"); // Usually at the top or bottom
+            
+                    // 4. UPDATE UI
                     document.getElementById('liveWind').innerText = `${wDir}° @ ${wSpd}kt`;
                     document.getElementById('liveVis').innerText  = `${vis} | ${sky}`;
                     document.getElementById('liveAwosTime').innerText = `UPDATED: ${updated}`;
                     
-                    // Show Panel
                     panel.classList.remove('hidden');
                     btn.innerHTML = "📡 Refresh Sensor Data";
                     
-                    // Critical Wind Warning (Red Text if > 15kt)
-                    const spdInt = parseInt(wSpd);
-                    if (!isNaN(spdInt) && spdInt >= 15) {
-                        document.getElementById('liveWind').style.color = "#ff453a"; // Red
+                    // Wind Alert
+                    if(parseInt(wSpd) > 15) {
+                        document.getElementById('liveWind').style.color = "#ff453a"; 
                     } else {
-                        document.getElementById('liveWind').style.color = "#ffffff"; // White
+                        document.getElementById('liveWind').style.color = "#ffffff"; 
                     }
             
                 } catch (e) {
                     console.error("AWOS Error:", e);
-                    // Show a helpful error in the UI
-                    document.getElementById('liveWind').innerText = "ERR";
-                    document.getElementById('liveVis').innerText  = "Check Console";
-                    btn.innerHTML = "⚠️ Scrape Failed";
-                    
-                    // If it really fails, it might be because KMHR specifically uses a weird URL
-                    // Try manually visiting http://kmhr.awosnet.com/ in a new tab to check.
+                    alert("Could not load the text version (text.php).");
+                    btn.innerHTML = "⚠️ Connection Failed";
                 } finally {
                     btn.disabled = false;
-                    btn.style.opacity = "1";
                 }
             }
         
