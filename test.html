@@ -799,6 +799,7 @@
                         
                         renderMetar(m); 
                         renderSkyVisuals(m);
+
                         const liveBtn = document.getElementById('btnFetchLive');
                         const livePanel = document.getElementById('liveAwosPanel');
                         
@@ -808,7 +809,9 @@
                         
                         // Only show button if it's Mather (KMHR)
                         if (icao === 'KMHR') {
-                            liveBtn.classList.remove('hidden');               
+                            liveBtn.classList.remove('hidden');
+                        }
+                        
                         renderFlightRuleBar(m); 
                         setupRunwaySelect();
                         findNearbyStations(stationData.latitude, stationData.longitude); 
@@ -1672,6 +1675,7 @@
                 document.getElementById('clearBtn').style.display = val ? 'block' : 'none';
             }
             function clearSearch() { document.getElementById('icao').value = ''; document.getElementById('icao').focus(); toggleClearBtn(); }
+
 
 
             async function fetchRealTimeAwos() {
