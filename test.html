@@ -348,6 +348,31 @@
             </div>
         </div>
 
+        <div id="liveAwosPanel" class="hidden" style="margin-top:10px; margin-bottom:10px; border: 1px solid #ff453a; background: rgba(255, 69, 58, 0.1); border-radius: 8px; padding: 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:10px; font-weight:900; background:#ff453a; color:white; padding:2px 6px; border-radius:4px; text-transform:uppercase;">REAL-TIME SENSOR</span>
+                    <span style="font-size:11px; color:#ff453a; font-weight:700;">KMHR (Mather)</span>
+                </div>
+                <div id="liveAwosTime" style="font-size:10px; color:#ff453a; font-family:'SF Mono', monospace;">--:--</div>
+            </div>
+            
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                <div class="metar-card" style="background:rgba(0,0,0,0.3);">
+                    <div class="m-label" style="color:#ff9f0a;">LIVE WIND</div>
+                    <div class="m-value" id="liveWind" style="font-size:15px;">--</div>
+                </div>
+                <div class="metar-card" style="background:rgba(0,0,0,0.3);">
+                    <div class="m-label" style="color:#ff9f0a;">LIVE VIS / SKY</div>
+                    <div class="m-value" id="liveVis" style="font-size:14px;">--</div>
+                </div>
+            </div>
+        </div>
+        
+        <button id="btnFetchLive" class="tool-btn hidden" style="margin-top:0; margin-bottom:10px; background:#1c1c1e; border:1px solid #ff453a; color:#ff453a;" onclick="fetchRealTimeAwos()">
+            📡 Fetch Real-Time Sensor Data (KMHR)
+        </button>
+        
         <div class="metar-grid">
             
             <div id="skyVisuals" class="sky-section">
@@ -774,6 +799,16 @@
                         
                         renderMetar(m); 
                         renderSkyVisuals(m);
+                        const liveBtn = document.getElementById('btnFetchLive');
+                        const livePanel = document.getElementById('liveAwosPanel');
+                        
+                        // Hide them by default every time we load new data
+                        liveBtn.classList.add('hidden');
+                        livePanel.classList.add('hidden');
+                        
+                        // Only show button if it's Mather (KMHR)
+                        if (icao === 'KMHR') {
+                            liveBtn.classList.remove('hidden');               
                         renderFlightRuleBar(m); 
                         setupRunwaySelect();
                         findNearbyStations(stationData.latitude, stationData.longitude); 
@@ -1637,7 +1672,86 @@
                 document.getElementById('clearBtn').style.display = val ? 'block' : 'none';
             }
             function clearSearch() { document.getElementById('icao').value = ''; document.getElementById('icao').focus(); toggleClearBtn(); }
-    
+
+
+            async function fetchRealTimeAwos() {
+                const btn = document.getElementById('btnFetchLive');
+                const panel = document.getElementById('liveAwosPanel');
+                
+                btn.innerHTML = "⏳ Connecting to Sensor...";
+                btn.disabled = true;
+            
+                // Use AllOrigins proxy to bypass CORS
+                const proxyUrl = 'https://api.allorigins.win/get?url=';
+                const targetUrl = encodeURIComponent('http://kmhr.awosnet.com/index.html');
+                const cb = Date.now();
+            
+                try {
+                    const response = await fetch(`${proxyUrl}${targetUrl}&t=${cb}`);
+                    const data = await response.json();
+            
+                    if (!data.contents) throw new Error("No content received");
+            
+                    // Parse HTML
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(data.contents, 'text/html');
+            
+                    // Helper to find data in the table cells
+                    const findVal = (txt) => {
+                        // Find all table cells
+                        const cells = Array.from(doc.querySelectorAll('td, th, font'));
+                        // Find the one containing our text label
+                        const label = cells.find(el => el.textContent && el.textContent.includes(txt));
+                        if (label) {
+                            // Try to find the value in the next few elements (structure varies)
+                            // Usually it's in the next sibling or parent's next sibling
+                            let val = label.nextElementSibling ? label.nextElementSibling.textContent : null;
+                            
+                            // If not found, try traversing up to the TR and finding the next TD
+                            if(!val && label.closest('tr')) {
+                                 const row = label.closest('tr');
+                                 const tds = Array.from(row.querySelectorAll('td'));
+                                 const idx = tds.indexOf(label.closest('td'));
+                                 if(tds[idx+1]) val = tds[idx+1].textContent;
+                            }
+                            return val ? val.trim() : "N/A";
+                        }
+                        return "N/A";
+                    };
+            
+                    // Scrape specific fields based on KMHR AWOS layout
+                    const windDir = findVal("Wind Direction");
+                    const windSpd = findVal("Wind Speed");
+                    const vis = findVal("Visibility");
+                    const sky = findVal("Sky Condition");
+                    const temp = findVal("Temperature");
+                    const updated = findVal("Updated");
+            
+                    // Update UI
+                    document.getElementById('liveWind').innerText = `${windDir}° @ ${windSpd}`;
+                    document.getElementById('liveVis').innerText = `${vis} | ${sky}`;
+                    document.getElementById('liveAwosTime').innerText = `UPDATED: ${updated}`;
+                    
+                    // Show the panel
+                    panel.classList.remove('hidden');
+                    btn.innerHTML = "📡 Refresh Sensor Data";
+                    
+                    // Optional: Highlight if wind is strong
+                    if(parseInt(windSpd) > 15) {
+                        document.getElementById('liveWind').style.color = "var(--danger)";
+                    } else {
+                        document.getElementById('liveWind').style.color = "var(--text)";
+                    }
+            
+                } catch (e) {
+                    console.error(e);
+                    alert("Could not connect to Mather AWOS directly.\nThe site might be down or changing layout.");
+                    btn.innerHTML = "⚠️ Connection Failed";
+                } finally {
+                    btn.disabled = false;
+                }
+            }
+        
             // Start
             initApp();
         </script>
